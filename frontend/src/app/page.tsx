@@ -1,5 +1,18 @@
 'use client';
 
+/**
+ * Home — Main application page for the HAR Reverse Engineer tool.
+ *
+ * Implements a 5-step guided workflow:
+ *   1. Upload a .har file (drag-and-drop or file picker)
+ *   2. Inspect the parsed HTTP requests (filtered vs all)
+ *   3. Describe the API to find (free-text input)
+ *   4. View the LLM result: curl command, AI candidates, token stats
+ *   5. Execute the curl command and view the live API response
+ *
+ * Steps are progressively revealed as the user completes each one.
+ */
+
 import { useState } from 'react';
 import { toast, Toaster } from 'sonner';
 import { FileUpload } from '@/components/FileUpload';

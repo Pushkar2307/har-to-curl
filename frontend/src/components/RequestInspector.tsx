@@ -1,5 +1,13 @@
 'use client';
 
+/**
+ * RequestInspector — Tabbed table view for HAR request entries.
+ *
+ * Displays two tabs: "API Requests" (filtered) and "All Requests" (unfiltered).
+ * The LLM-matched entry is highlighted with a primary-color left border.
+ * Shows filtering stats (total / removed / kept) in the header.
+ */
+
 import { useState } from 'react';
 import { CompactEntry } from '@/types/har';
 import { Badge } from '@/components/ui/badge';
@@ -16,12 +24,17 @@ import {
 } from '@/components/ui/table';
 
 interface RequestInspectorProps {
+  /** Filtered API request entries (after removing static assets, HTML, etc.). */
   entries: CompactEntry[];
+  /** All raw entries from the HAR file (before filtering). */
   allEntries: CompactEntry[];
+  /** Filtering statistics: how many entries were kept vs removed. */
   stats: { total: number; removed: number; kept: number } | null;
+  /** Index of the LLM-matched entry to highlight in the table, or null. */
   highlightedIndex: number | null;
 }
 
+/** Map HTTP method to a color-coded Tailwind class (supports dark mode). */
 function getMethodColor(method: string): string {
   switch (method.toUpperCase()) {
     case 'GET':
@@ -39,6 +52,7 @@ function getMethodColor(method: string): string {
   }
 }
 
+/** Map HTTP status code to a color class: green (2xx), yellow (3xx), red (4xx+). */
 function getStatusColor(status: number): string {
   if (status >= 200 && status < 300) return 'text-green-600 dark:text-green-400';
   if (status >= 300 && status < 400) return 'text-yellow-600 dark:text-yellow-400';
@@ -46,6 +60,7 @@ function getStatusColor(status: number): string {
   return 'text-muted-foreground';
 }
 
+/** Format a byte count as a human-readable string (B, KB, or MB). */
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
   if (bytes < 1024) return `${bytes} B`;
@@ -53,11 +68,13 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1048576).toFixed(1)} MB`;
 }
 
+/** Truncate a URL to `maxLength` characters, appending "..." if longer. */
 function truncateUrl(url: string, maxLength = 80): string {
   if (url.length <= maxLength) return url;
   return url.substring(0, maxLength) + '...';
 }
 
+/** Scrollable table of HAR entries. Highlights the row matching `highlightedIndex`. */
 function RequestTable({
   entries,
   highlightedIndex,

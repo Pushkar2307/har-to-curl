@@ -1,15 +1,29 @@
 'use client';
 
+/**
+ * FileUpload — Drag-and-drop HAR file upload component.
+ *
+ * Provides a drop zone and file picker for .har files (up to 150MB).
+ * Files are immediately passed to the parent via `onFileSelected` for upload.
+ */
+
 import { useCallback, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
 interface FileUploadProps {
+  /** Called when a valid .har file is selected (via drop or file picker). */
   onFileSelected: (file: File) => void;
+  /** True while the file is being uploaded to the backend. */
   isLoading: boolean;
+  /** The currently selected file, if any. */
   currentFile: File | null;
 }
 
+/**
+ * Drag-and-drop file upload zone with fallback file picker.
+ * Only accepts files with the .har extension.
+ */
 export function FileUpload({
   onFileSelected,
   isLoading,
@@ -17,6 +31,7 @@ export function FileUpload({
 }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
 
+  /** Prevent default browser behavior during drag events. */
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -34,6 +49,7 @@ export function FileUpload({
     setIsDragging(false);
   }, []);
 
+  /** Validate dropped file has .har extension before forwarding to parent. */
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -51,6 +67,7 @@ export function FileUpload({
     [onFileSelected],
   );
 
+  /** Handle file selection from the native file picker input. */
   const handleFileInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;

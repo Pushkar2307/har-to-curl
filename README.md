@@ -10,7 +10,8 @@ A web application that allows users to upload a `.har` (HTTP Archive) file, desc
 │   │   ├── har/      # HAR parsing, analysis, and execution
 │   │   │   ├── utils/
 │   │   │   │   ├── har-parser.ts      # HAR file parsing & filtering
-│   │   │   │   └── curl-generator.ts  # curl command generation
+│   │   │   │   ├── curl-generator.ts  # curl command generation
+│   │   │   │   └── url-validator.ts   # SSRF protection & URL validation
 │   │   │   ├── har.controller.ts      # API endpoints
 │   │   │   ├── har.service.ts         # Business logic
 │   │   │   └── dto/                   # Request/response DTOs
@@ -28,6 +29,9 @@ A web application that allows users to upload a `.har` (HTTP Archive) file, desc
 │   │   ├── lib/           # Utilities & API client
 │   │   └── types/         # TypeScript interfaces
 │   └── ...
+├── scripts/          # Automation
+│   └── ablation.ts        # Ablation study runner
+├── reports/          # Generated ablation reports (markdown)
 └── .env.example      # Environment variable template
 ```
 
@@ -79,6 +83,16 @@ npm run dev
 ```
 
 Then open **http://localhost:3000** in your browser.
+
+### 4. Run tests
+
+```bash
+cd backend
+npm test          # Run unit tests (46 tests across 3 suites)
+npm run test:cov  # Run with coverage report
+```
+
+Tests cover the core utility modules: HAR parsing & filtering, curl generation, and SSRF URL validation (~97% line coverage on `src/har/utils/`).
 
 ## How It Works
 

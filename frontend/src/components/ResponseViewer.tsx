@@ -1,5 +1,14 @@
 'use client';
 
+/**
+ * ResponseViewer — Displays the result of executing a curl command.
+ *
+ * Shows a tabbed view with:
+ * - Body tab: auto-formatted JSON (or raw text if not valid JSON)
+ * - Headers tab: key-value list of response headers
+ * Status badge is color-coded (green 2xx, yellow 3xx, red 4xx/5xx).
+ */
+
 import { ExecuteResponse } from '@/types/har';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,12 +19,14 @@ interface ResponseViewerProps {
   response: ExecuteResponse;
 }
 
+/** Map HTTP status code to a color-coded badge class. */
 function getStatusBadgeVariant(status: number): string {
   if (status >= 200 && status < 300) return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
   if (status >= 300 && status < 400) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200';
   return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
 }
 
+/** Pretty-print JSON body, or return raw text if parsing fails. */
 function formatJson(text: string): string {
   try {
     return JSON.stringify(JSON.parse(text), null, 2);

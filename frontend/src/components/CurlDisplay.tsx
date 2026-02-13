@@ -1,5 +1,16 @@
 'use client';
 
+/**
+ * CurlDisplay — Shows the generated curl command with AI analysis details.
+ *
+ * Sections (top to bottom):
+ * 1. Dedup info banner — shown when entries were condensed before LLM analysis
+ * 2. AI Analysis panel — collapsible; shows reasoning text and candidate list
+ *    with confidence bars (sorted by confidence, best match highlighted)
+ * 3. Curl command — copyable code block with Copy and Execute buttons
+ * 4. Token usage stats — model, prompt/completion/total tokens, latency
+ */
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,6 +48,7 @@ export function CurlDisplay({
   const [copied, setCopied] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
 
+  /** Copy the curl command to clipboard with a 2-second "Copied" feedback. */
   const handleCopy = async () => {
     await navigator.clipboard.writeText(curl);
     setCopied(true);
@@ -102,12 +114,14 @@ export function CurlDisplay({
                 <div className="space-y-1.5">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Candidates Evaluated</p>
                   <div className="space-y-2">
+                    {/* Sort candidates by confidence (highest first); highlight the LLM's chosen match */}
                     {candidates
                       .slice()
                       .sort((a, b) => b.confidence - a.confidence)
                       .map((candidate, i) => {
                       const isBestMatch = candidate.index === matchedIndex;
                       const confidence = candidate.confidence ?? 0;
+                      // Color and label tiers: >=90 High, >=70 Likely, >=50 Possible, <50 Unlikely
                       const confidenceColor =
                         confidence >= 90
                           ? 'bg-green-500'
