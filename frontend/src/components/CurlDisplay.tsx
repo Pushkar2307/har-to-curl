@@ -69,7 +69,7 @@ export function CurlDisplay({
               <span className="text-blue-700 dark:text-blue-400">
                 {totalEntries} API requests were condensed into{' '}
                 <span className="font-semibold">{entriesAnalyzed} unique patterns</span>{' '}
-                before sending to the LLM — duplicate endpoints with different parameter values are grouped together.
+                before sending to the LLM. Duplicate endpoints with different parameter values are grouped together.
               </span>
             </div>
           </div>
