@@ -101,7 +101,7 @@ The key design challenge is keeping LLM token usage low while accurately identif
 **Targeted LLM query:**
 - Send only the deduplicated compact summary (not full headers/bodies) to the LLM
 - Use low temperature (0.1) for deterministic results
-- Cap response to 500 tokens (index + reasoning + confidence-scored candidates)
+- Cap response tokens dynamically based on enabled features (150 minimal, +200 for candidates, +150 for reasoning)
 - Use `gpt-4o-mini` by default for cost efficiency
 
 **Result:** A typical analysis uses ~1,500-7,000 tokens total, compared to 50,000+ if the full HAR were sent. For example, an 87MB HAR file with 1,727 requests is processed with only ~7,000 tokens after filtering (1,473 removed) and deduplication (254 → 127 unique patterns).
@@ -146,9 +146,38 @@ For example, the RecipeCal API (`POST /api/bookapi`) returns `{"error": true}` w
 ## Features
 
 - **Drag & drop HAR upload** with support for files up to 150MB
-- **Request inspector** — browse all filtered API requests in a table
-- **AI-powered matching** — LLM identifies the best-matching endpoint with reasoning and confidence scores
-- **Smart deduplication** — reduces token usage by 80-90% by grouping duplicate endpoint patterns
+- **Request inspector** — browse all filtered API requests in a table, with tabs for filtered vs all entries
+- **AI-powered matching** — LLM identifies the best-matching endpoint
 - **curl generation** — programmatic curl command with all headers, query params, and request body
-- **One-click execution** — test the API directly from the UI with a server-side proxy (15s timeout)
-- **Transparency** — view AI reasoning, candidate evaluation with confidence bars, token usage, and LLM latency
+- **One-click execution** — test the API directly from the UI via a server-side proxy (30s timeout)
+
+## Bonus Features
+
+### Token Efficiency
+- **Smart deduplication & URL compaction** — groups duplicate endpoint patterns and strips query parameter values, reducing token usage by 80-90% on large HAR files (e.g., 42K → 7K tokens on an 87MB file with 1,727 requests)
+- **Body stripping** — removes response bodies and truncates large request bodies from stored entries to keep memory usage low on 50MB+ HAR files
+- **Configurable feature flags** — `deduplication`, `candidates`, and `reasoning` flags on the `/analyze` endpoint allow fine-tuning the cost vs explainability trade-off without code changes (all default to current optimal config)
+
+### Ablation Study
+- **Automated ablation script** (`scripts/ablation.ts`) that tests all 7 flag combinations across any HAR file and generates a markdown comparison report
+- **Isolated feature cost measurement** — each feature's token cost is measured independently (e.g., candidates cost +200-260 tokens, reasoning text costs +80-95 tokens, dedup saves up to 35K tokens)
+- **Data-driven config decision** — ablation results showed reasoning text adds ~80-95 tokens for limited end-user value, so the default UI ships with candidates on + reasoning off — saving tokens without losing visual explainability
+- **100% accuracy across all 28 runs** (7 configs x 4 HAR files) — feature flags do not affect match correctness
+- Reports for all assignment use cases are in `reports/`
+
+### AI Transparency & UX
+- **Candidate evaluation with confidence bars** — ranked alternative matches with color-coded confidence scores (High/Likely/Possible/Unlikely)
+- **Deduplication stats banner** — shows users how many entries were condensed ("254 API requests condensed into 127 unique patterns")
+- **Token usage display** — prompt, completion, and total token counts visible in the UI
+- **LLM latency display** — shows how long the LLM API call took
+
+### Security
+- **SSRF protection** — URL validation with DNS rebinding prevention blocks requests to private IPs, cloud metadata endpoints, and non-HTTP protocols
+- **Rate limiting** — 20 requests per 60 seconds via NestJS throttler
+- **Security headers** — Helmet.js for standard HTTP security headers (CSP, HSTS, etc.)
+- **Input validation** — class-validator DTOs on all endpoints with whitelist mode
+
+### Execution
+- **Server-side proxy** — avoids CORS issues when testing API calls from the browser
+- **30s timeout** with informative error messages guiding users to try the curl command directly
+- **Full request detail passthrough** — headers and body from the original HAR entry are preserved for accurate replay
