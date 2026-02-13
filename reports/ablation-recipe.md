@@ -6,32 +6,35 @@
 
 ## Results
 
-| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | Latency | Match |
-|---|---|---|---|---|---|---|---|---|---|
-| Baseline (minimal) | ✗ | ✗ | ✗ | 5 | 421 | 61 | 482 | 1309ms | [0] |
-| + Deduplication only | ✓ | ✗ | ✗ | 3 | 378 | 53 | 431 | 1133ms | [0] |
-| + Candidates only | ✗ | ✓ | ✗ | 5 | 521 | 165 | 686 | 4769ms | [0] |
-| + Reasoning only | ✗ | ✗ | ✓ | 5 | 448 | 117 | 565 | 2995ms | [0] |
-| + Candidates + Reasoning | ✗ | ✓ | ✓ | 5 | 548 | 261 | 809 | 4148ms | [0] |
-| Dedup + Candidates (no reasoning) | ✓ | ✓ | ✗ | 3 | 478 | 169 | 647 | 2725ms | [0] |
-| All features (default) | ✓ | ✓ | ✓ | 3 | 505 | 234 | 739 | 2907ms | [0] |
+*Latency = LLM API call time only (excludes parsing, filtering, dedup)*
+
+| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | % vs Baseline | Latency | Match |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Baseline (minimal) | ✗ | ✗ | ✗ | 5 | 421 | 61 | 482 | — | 3775ms | [0] |
+| + Deduplication only | ✓ | ✗ | ✗ | 3 | 378 | 53 | 431 | -10.6% | 2106ms | [0] |
+| + Candidates only | ✗ | ✓ | ✗ | 5 | 521 | 172 | 693 | +43.8% | 3618ms | [0] |
+| + Reasoning only | ✗ | ✗ | ✓ | 5 | 448 | 114 | 562 | +16.6% | 3216ms | [0] |
+| + Candidates + Reasoning | ✗ | ✓ | ✓ | 5 | 548 | 256 | 804 | +66.8% | 5985ms | [0] |
+| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 3 | 478 | 168 | 646 | +34.0% | 3327ms | [0] |
+| All features (with reasoning) | ✓ | ✓ | ✓ | 3 | 505 | 239 | 744 | +54.4% | 5311ms | [0] |
 
 ## Isolated Feature Costs
 
 | Feature | Prompt Δ | Completion Δ | Total Δ | What you get |
 |---|---|---|---|---|
 | Deduplication | -43 | -8 | -51 | URL compaction, fewer entries sent |
-| Candidates + Confidence | +100 | +104 | +204 | Ranked alternatives with confidence bars |
-| Reasoning text | +27 | +56 | +83 | Verbose thought process explanation |
+| Candidates + Confidence | +100 | +111 | +211 | Ranked alternatives with confidence bars |
+| Reasoning text | +27 | +53 | +80 | Verbose thought process explanation |
 
-## Recommended Configuration
+## Shipping Default vs All Features
 
-**Dedup + Candidates (no reasoning):** 647 tokens (-34.2% vs baseline)
-- Gets you the high-value UX (confidence bars, candidate list) without the verbose reasoning text
-- Reasoning text adds ~56 completion tokens for limited end-user value
+**Dedup + Candidates (shipping default):** 646 tokens (-34.0% vs baseline)
+- Confidence bars + candidate list provide the high-value UX
+- Reasoning text omitted — adds ~53 completion tokens for limited end-user value
 
-**All features:** 739 tokens
-- Full transparency including reasoning (-53.3% vs baseline)
+**All features (with reasoning):** 744 tokens
+- Full transparency including verbose reasoning text (-54.4% vs baseline)
+- Available via `reasoning: true` flag for debugging or detailed analysis
 
 ## Correctness
 
@@ -46,18 +49,18 @@
 > The endpoint '/api/bookapi' is likely related to recipes, and since it returns JSON data, it is the best candidate for providing recipes based on specific parameters like portion and calorie count.
 
 **+ Candidates only:** [0] https://recipescal.com/api/bookapi
-> The 'bookapi' endpoint is the best match as it likely returns recipe data, which aligns with the user's request for recipes based on portion and calorie count.
+> The best match is the 'bookapi' endpoint, as it likely returns recipe data, which aligns with the user's request for recipes based on portion and calorie count.
 
 **+ Reasoning only:** [0] https://recipescal.com/api/bookapi
-> '/api/bookapi' is the best match as it is the only endpoint that suggests it may provide recipe-related data, aligning with the user's need for recipes based on specific criteria.
+> '/api/bookapi' is the best match as it likely pertains to recipe data, which aligns with the user's interest in obtaining recipes based on specific criteria.
 
 **+ Candidates + Reasoning:** [0] https://recipescal.com/api/bookapi
-> '/api/bookapi' is the best match as it is the only endpoint that suggests it could provide recipes, which is what the user is looking for.
+> The '/api/bookapi' endpoint is the best match as it likely provides access to recipes, which is directly relevant to the user's request for recipes based on specific criteria.
 
-**Dedup + Candidates (no reasoning):** [0] https://recipescal.com/api/bookapi
-> The 'bookapi' endpoint is the best match as it likely provides recipe data, which aligns with the user's request for recipes based on portion and calorie count.
+**Dedup + Candidates (default):** [0] https://recipescal.com/api/bookapi
+> The 'bookapi' endpoint is the best match as it likely provides recipe data, which aligns with the user's request for recipes based on specific criteria.
 
-**All features (default):** [0] https://recipescal.com/api/bookapi
+**All features (with reasoning):** [0] https://recipescal.com/api/bookapi
 > The '/api/bookapi' endpoint is the best match as it likely provides recipe data, which aligns closely with the user's request for recipes based on portion and calorie count.
 
 ---

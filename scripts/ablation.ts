@@ -90,8 +90,8 @@ const CONFIGS = [
   { name: '+ Candidates only',              deduplication: false, candidates: true,  reasoning: false },
   { name: '+ Reasoning only',               deduplication: false, candidates: false, reasoning: true },
   { name: '+ Candidates + Reasoning',       deduplication: false, candidates: true,  reasoning: true },
-  { name: 'Dedup + Candidates (no reasoning)', deduplication: true, candidates: true, reasoning: false },
-  { name: 'All features (default)',          deduplication: true,  candidates: true,  reasoning: true },
+  { name: 'Dedup + Candidates (default)',    deduplication: true,  candidates: true,  reasoning: false },
+  { name: 'All features (with reasoning)',   deduplication: true,  candidates: true,  reasoning: true },
 ];
 
 // --- Main ---
@@ -207,11 +207,14 @@ function generateReport(
 
   // Main results table
   md += `## Results\n\n`;
-  md += `| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | Latency | Match |\n`;
-  md += `|---|---|---|---|---|---|---|---|---|---|\n`;
+  md += `*Latency = LLM API call time only (excludes parsing, filtering, dedup)*\n\n`;
+  md += `| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | % vs Baseline | Latency | Match |\n`;
+  md += `|---|---|---|---|---|---|---|---|---|---|---|\n`;
 
   for (const r of results) {
-    md += `| ${r.config} | ${r.dedup ? '✓' : '✗'} | ${r.withCandidates ? '✓' : '✗'} | ${r.reasoning ? '✓' : '✗'} | ${r.entriesSent} | ${r.promptTokens.toLocaleString()} | ${r.completionTokens} | ${r.totalTokens.toLocaleString()} | ${r.latencyMs}ms | [${r.matchedIndex}] |\n`;
+    const pctChange = ((r.totalTokens - baseline.totalTokens) / baseline.totalTokens * 100).toFixed(1);
+    const pctLabel = r === baseline ? '—' : `${Number(pctChange) > 0 ? '+' : ''}${pctChange}%`;
+    md += `| ${r.config} | ${r.dedup ? '✓' : '✗'} | ${r.withCandidates ? '✓' : '✗'} | ${r.reasoning ? '✓' : '✗'} | ${r.entriesSent} | ${r.promptTokens.toLocaleString()} | ${r.completionTokens} | ${r.totalTokens.toLocaleString()} | ${pctLabel} | ${r.latencyMs}ms | [${r.matchedIndex}] |\n`;
   }
 
   md += `\n`;
@@ -250,18 +253,19 @@ function generateReport(
   md += `\n`;
 
   // Recommended config
-  md += `## Recommended Configuration\n\n`;
+  md += `## Shipping Default vs All Features\n\n`;
 
   if (dedupPlusCandidates) {
     const savings = ((1 - dedupPlusCandidates.totalTokens / baseline.totalTokens) * 100).toFixed(1);
-    md += `**Dedup + Candidates (no reasoning):** ${dedupPlusCandidates.totalTokens.toLocaleString()} tokens (${savings}% vs baseline)\n`;
-    md += `- Gets you the high-value UX (confidence bars, candidate list) without the verbose reasoning text\n`;
-    md += `- Reasoning text adds ~${reasoningOnly ? reasoningOnly.completionTokens - baseline.completionTokens : '?'} completion tokens for limited end-user value\n\n`;
+    md += `**Dedup + Candidates (shipping default):** ${dedupPlusCandidates.totalTokens.toLocaleString()} tokens (${savings}% vs baseline)\n`;
+    md += `- Confidence bars + candidate list provide the high-value UX\n`;
+    md += `- Reasoning text omitted — adds ~${reasoningOnly ? reasoningOnly.completionTokens - baseline.completionTokens : '?'} completion tokens for limited end-user value\n\n`;
   }
 
-  md += `**All features:** ${allFeatures.totalTokens.toLocaleString()} tokens\n`;
+  md += `**All features (with reasoning):** ${allFeatures.totalTokens.toLocaleString()} tokens\n`;
   const allSavings = ((1 - allFeatures.totalTokens / baseline.totalTokens) * 100).toFixed(1);
-  md += `- Full transparency including reasoning (${allSavings}% vs baseline)\n\n`;
+  md += `- Full transparency including verbose reasoning text (${allSavings}% vs baseline)\n`;
+  md += `- Available via \`reasoning: true\` flag for debugging or detailed analysis\n\n`;
 
   // Correctness
   md += `## Correctness\n\n`;

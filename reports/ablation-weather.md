@@ -6,32 +6,35 @@
 
 ## Results
 
-| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | Latency | Match |
-|---|---|---|---|---|---|---|---|---|---|
-| Baseline (minimal) | ✗ | ✗ | ✗ | 12 | 1,421 | 66 | 1,487 | 1522ms | [11] |
-| + Deduplication only | ✓ | ✗ | ✗ | 12 | 805 | 46 | 851 | 1147ms | [11] |
-| + Candidates only | ✗ | ✓ | ✗ | 12 | 1,521 | 188 | 1,709 | 3024ms | [11] |
-| + Reasoning only | ✗ | ✗ | ✓ | 12 | 1,448 | 117 | 1,565 | 1707ms | [11] |
-| + Candidates + Reasoning | ✗ | ✓ | ✓ | 12 | 1,548 | 278 | 1,826 | 4760ms | [11] |
-| Dedup + Candidates (no reasoning) | ✓ | ✓ | ✗ | 12 | 905 | 185 | 1,090 | 2740ms | [11] |
-| All features (default) | ✓ | ✓ | ✓ | 12 | 932 | 321 | 1,253 | 7710ms | [11] |
+*Latency = LLM API call time only (excludes parsing, filtering, dedup)*
+
+| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | % vs Baseline | Latency | Match |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Baseline (minimal) | ✗ | ✗ | ✗ | 12 | 1,421 | 38 | 1,459 | — | 1586ms | [11] |
+| + Deduplication only | ✓ | ✗ | ✗ | 12 | 805 | 47 | 852 | -41.6% | 1294ms | [11] |
+| + Candidates only | ✗ | ✓ | ✗ | 12 | 1,521 | 187 | 1,708 | +17.1% | 4751ms | [11] |
+| + Reasoning only | ✗ | ✗ | ✓ | 12 | 1,448 | 121 | 1,569 | +7.5% | 3013ms | [11] |
+| + Candidates + Reasoning | ✗ | ✓ | ✓ | 12 | 1,548 | 253 | 1,801 | +23.4% | 7284ms | [11] |
+| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 12 | 905 | 183 | 1,088 | -25.4% | 5874ms | [11] |
+| All features (with reasoning) | ✓ | ✓ | ✓ | 12 | 932 | 252 | 1,184 | -18.8% | 6314ms | [11] |
 
 ## Isolated Feature Costs
 
 | Feature | Prompt Δ | Completion Δ | Total Δ | What you get |
 |---|---|---|---|---|
-| Deduplication | -616 | -20 | -636 | URL compaction, fewer entries sent |
-| Candidates + Confidence | +100 | +122 | +222 | Ranked alternatives with confidence bars |
-| Reasoning text | +27 | +51 | +78 | Verbose thought process explanation |
+| Deduplication | -616 | +9 | -607 | URL compaction, fewer entries sent |
+| Candidates + Confidence | +100 | +149 | +249 | Ranked alternatives with confidence bars |
+| Reasoning text | +27 | +83 | +110 | Verbose thought process explanation |
 
-## Recommended Configuration
+## Shipping Default vs All Features
 
-**Dedup + Candidates (no reasoning):** 1,090 tokens (26.7% vs baseline)
-- Gets you the high-value UX (confidence bars, candidate list) without the verbose reasoning text
-- Reasoning text adds ~51 completion tokens for limited end-user value
+**Dedup + Candidates (shipping default):** 1,088 tokens (25.4% vs baseline)
+- Confidence bars + candidate list provide the high-value UX
+- Reasoning text omitted — adds ~83 completion tokens for limited end-user value
 
-**All features:** 1,253 tokens
-- Full transparency including reasoning (15.7% vs baseline)
+**All features (with reasoning):** 1,184 tokens
+- Full transparency including verbose reasoning text (18.8% vs baseline)
+- Available via `reasoning: true` flag for debugging or detailed analysis
 
 ## Correctness
 
@@ -40,25 +43,25 @@
 ## Matched Entry Details
 
 **Baseline (minimal):** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
-> This request to 'https://forecast7.com/en/37d77n122d42/san-francisco/?format=json' specifically fetches weather data for San Francisco, returning a JSON response, making it the best match for the user's request.
+> This request fetches weather data specifically for San Francisco, as indicated by the URL path and the JSON response format.
 
 **+ Deduplication only:** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
-> This request fetches weather data specifically for San Francisco, as indicated by the URL path containing 'san-francisco' and the response format being JSON.
+> This request fetches weather data specifically for San Francisco, as indicated by the URL containing 'san-francisco' and the use of a weather-related endpoint.
 
 **+ Candidates only:** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
 > The best match is the endpoint that directly fetches weather data for San Francisco in JSON format, making it highly relevant to the user's request.
 
 **+ Reasoning only:** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
-> This request directly fetches weather data for San Francisco in JSON format, aligning perfectly with the user's request for an API that provides weather information for that location.
+> The request at index 11 directly fetches weather data for San Francisco, making it the best match for the user's requirement.
 
 **+ Candidates + Reasoning:** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
-> The best match is the endpoint at index [11] because it directly fetches weather data for San Francisco in JSON format, aligning perfectly with the user's request.
+> The request at index [11] is the best match as it directly fetches weather data for San Francisco in JSON format, aligning perfectly with the user's request.
 
-**Dedup + Candidates (no reasoning):** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
-> The best match is the endpoint that includes 'san-francisco' in its URL and returns weather data, making it highly relevant to the user's request for weather information.
+**Dedup + Candidates (default):** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
+> The best match is the endpoint that directly references 'san-francisco' and returns weather data in JSON format, making it highly relevant to the user's request.
 
-**All features (default):** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
-> The request at index [11] is the best match as it directly fetches weather data for San Francisco, making it highly relevant to the user's request.
+**All features (with reasoning):** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
+> The request at index [11] is the best match as it directly fetches weather data for San Francisco and returns it in JSON format.
 
 ---
 *Generated by ablation.ts*

@@ -6,32 +6,35 @@
 
 ## Results
 
-| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | Latency | Match |
-|---|---|---|---|---|---|---|---|---|---|
-| Baseline (minimal) | ✗ | ✗ | ✗ | 3 | 375 | 55 | 430 | 1498ms | [2] |
-| + Deduplication only | ✓ | ✗ | ✗ | 3 | 375 | 54 | 429 | 1035ms | [2] |
-| + Candidates only | ✗ | ✓ | ✗ | 3 | 475 | 164 | 639 | 2519ms | [2] |
-| + Reasoning only | ✗ | ✗ | ✓ | 3 | 402 | 123 | 525 | 2001ms | [2] |
-| + Candidates + Reasoning | ✗ | ✓ | ✓ | 3 | 502 | 263 | 765 | 3457ms | [2] |
-| Dedup + Candidates (no reasoning) | ✓ | ✓ | ✗ | 3 | 475 | 185 | 660 | 3198ms | [2] |
-| All features (default) | ✓ | ✓ | ✓ | 3 | 502 | 294 | 796 | 4787ms | [2] |
+*Latency = LLM API call time only (excludes parsing, filtering, dedup)*
+
+| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | % vs Baseline | Latency | Match |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Baseline (minimal) | ✗ | ✗ | ✗ | 3 | 375 | 60 | 435 | — | 1995ms | [2] |
+| + Deduplication only | ✓ | ✗ | ✗ | 3 | 375 | 54 | 429 | -1.4% | 2212ms | [2] |
+| + Candidates only | ✗ | ✓ | ✗ | 3 | 475 | 167 | 642 | +47.6% | 5473ms | [2] |
+| + Reasoning only | ✗ | ✗ | ✓ | 3 | 402 | 122 | 524 | +20.5% | 2707ms | [2] |
+| + Candidates + Reasoning | ✗ | ✓ | ✓ | 3 | 502 | 306 | 808 | +85.7% | 8295ms | [2] |
+| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 3 | 475 | 186 | 661 | +52.0% | 4141ms | [2] |
+| All features (with reasoning) | ✓ | ✓ | ✓ | 3 | 502 | 249 | 751 | +72.6% | 9064ms | [2] |
 
 ## Isolated Feature Costs
 
 | Feature | Prompt Δ | Completion Δ | Total Δ | What you get |
 |---|---|---|---|---|
-| Deduplication | +0 | -1 | -1 | URL compaction, fewer entries sent |
-| Candidates + Confidence | +100 | +109 | +209 | Ranked alternatives with confidence bars |
-| Reasoning text | +27 | +68 | +95 | Verbose thought process explanation |
+| Deduplication | +0 | -6 | -6 | URL compaction, fewer entries sent |
+| Candidates + Confidence | +100 | +107 | +207 | Ranked alternatives with confidence bars |
+| Reasoning text | +27 | +62 | +89 | Verbose thought process explanation |
 
-## Recommended Configuration
+## Shipping Default vs All Features
 
-**Dedup + Candidates (no reasoning):** 660 tokens (-53.5% vs baseline)
-- Gets you the high-value UX (confidence bars, candidate list) without the verbose reasoning text
-- Reasoning text adds ~68 completion tokens for limited end-user value
+**Dedup + Candidates (shipping default):** 661 tokens (-52.0% vs baseline)
+- Confidence bars + candidate list provide the high-value UX
+- Reasoning text omitted — adds ~62 completion tokens for limited end-user value
 
-**All features:** 796 tokens
-- Full transparency including reasoning (-85.1% vs baseline)
+**All features (with reasoning):** 751 tokens
+- Full transparency including verbose reasoning text (-72.6% vs baseline)
+- Available via `reasoning: true` flag for debugging or detailed analysis
 
 ## Correctness
 
@@ -40,25 +43,25 @@
 ## Matched Entry Details
 
 **Baseline (minimal):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> This request to the endpoint '/joke/Any?amount=5' specifically requests 5 jokes, making it the best match for the user's request for a curl command to get jokes via API.
+> The endpoint 'https://v2.jokeapi.dev/joke/Any?amount=5' directly requests 5 jokes, making it the best match for the user's request for a curl command to get jokes via API.
 
 **+ Deduplication only:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
 > The endpoint '/joke/Any' with the query parameter 'amount' suggests it is designed to retrieve jokes, making it the best match for the user's request for an API to get jokes.
 
 **+ Candidates only:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The best match is the endpoint that retrieves 5 jokes, which directly aligns with the user's request for jokes via an API.
+> The best match is the endpoint that retrieves jokes, specifically requesting 5 jokes, which aligns perfectly with the user's request for a curl command to get jokes.
 
 **+ Reasoning only:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
 > This is the best match because it specifically requests 5 jokes from the joke API, aligning perfectly with the user's requirement.
 
 **+ Candidates + Reasoning:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index 2 is the best match because it directly retrieves jokes and allows the user to specify the number of jokes to return, aligning perfectly with the user's request.
+> The endpoint at index [2] is the best match as it directly retrieves jokes and allows the user to specify the number of jokes, which perfectly aligns with the user's request.
 
-**Dedup + Candidates (no reasoning):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index 2 is the best match as it is specifically designed to retrieve jokes and includes a parameter for the number of jokes to return, aligning perfectly with the user's request.
+**Dedup + Candidates (default):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
+> The endpoint at index 2 is the best match as it is specifically designed to retrieve jokes and allows for specifying the number of jokes to return, aligning perfectly with the user's request.
 
-**All features (default):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index [2] is the best match as it is specifically designed to retrieve jokes and allows for specifying the number of jokes to return.
+**All features (with reasoning):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
+> The endpoint at index [2] is the best match as it directly supports fetching a specified number of jokes, which aligns perfectly with the user's request.
 
 ---
 *Generated by ablation.ts*
