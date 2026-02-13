@@ -81,7 +81,7 @@ export default function Home() {
     setExecuteResponse(null);
 
     try {
-      const result = await analyzeHar(harId, description);
+      const result = await analyzeHar(harId, description, { reasoning: false });
       setAnalysisResult(result);
       toast.success('Found matching API request');
     } catch (error) {
