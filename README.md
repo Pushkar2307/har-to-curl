@@ -88,7 +88,7 @@ Then open **http://localhost:3000** in your browser.
 
 ```bash
 cd backend
-npm test          # Run unit tests (46 tests across 3 suites)
+npm test          # Run unit tests (50 tests across 3 suites)
 npm run test:cov  # Run with coverage report
 ```
 
@@ -123,8 +123,8 @@ The key design challenge is keeping LLM token usage low while accurately identif
 ### curl Generation
 
 The curl command is generated programmatically (no LLM needed) from the matched HAR entry:
-- HTTP method, full URL with query parameters
-- All relevant headers (excluding auto-set ones like Host, Connection)
+- HTTP method, full URL with query parameters (only `http:`/`https:` URLs are permitted)
+- All relevant headers (excluding auto-set ones like Host, Connection); sensitive headers (e.g. Authorization, Cookie) are shown as `[REDACTED]` in the displayed curl
 - Request body (for POST/PUT/PATCH requests)
 - Proper shell escaping for safety
 
@@ -182,6 +182,9 @@ The "Execute" button replays the **exact request** captured in the HAR file. Thi
 
 ### Security
 - **SSRF protection** — URL validation with DNS rebinding prevention blocks requests to private IPs, cloud metadata endpoints, and non-HTTP protocols
+- **Sensitive header redaction** — the displayed/copied curl command redacts `Authorization`, `Cookie`, `X-Api-Key`, and similar headers as `[REDACTED]`; Execute still sends the real headers so requests work
+- **URL scheme enforcement** — only `http:` and `https:` URLs are allowed when generating curl; matched entries with `javascript:`, `data:`, etc. are rejected
+- **HAR entry cap** — uploads are limited to 50,000 entries per file to prevent DoS from extremely large HARs
 - **Rate limiting** — 20 requests per 60 seconds via NestJS throttler
 - **Security headers** — Helmet.js for standard HTTP security headers (CSP, HSTS, etc.)
 - **Input validation** — class-validator DTOs on all endpoints with whitelist mode

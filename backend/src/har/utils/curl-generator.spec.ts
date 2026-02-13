@@ -75,7 +75,22 @@ describe('generateCurl', () => {
       }),
     );
     expect(curl).toContain("-H 'Accept: application/json'");
-    expect(curl).toContain("-H 'Authorization: Bearer token123'");
+    expect(curl).toContain("-H 'Authorization: [REDACTED]'");
+  });
+
+  it('should redact sensitive headers (Authorization, Cookie, X-Api-Key, etc.)', () => {
+    const curl = generateCurl(
+      makeEntry({
+        headers: [
+          { name: 'Cookie', value: 'session=abc123' },
+          { name: 'X-Api-Key', value: 'secret-key' },
+        ],
+      }),
+    );
+    expect(curl).toContain("-H 'Cookie: [REDACTED]'");
+    expect(curl).toContain("-H 'X-Api-Key: [REDACTED]'");
+    expect(curl).not.toContain('abc123');
+    expect(curl).not.toContain('secret-key');
   });
 
   it('should skip HTTP/2 pseudo-headers (:authority, :scheme, :path, :method)', () => {
@@ -119,7 +134,7 @@ describe('generateCurl', () => {
   it('should escape single quotes in header values', () => {
     const curl = generateCurl(
       makeEntry({
-        headers: [{ name: 'Cookie', value: "name=it's" }],
+        headers: [{ name: 'X-Custom', value: "name=it's" }],
       }),
     );
     // Single quotes should be escaped for shell safety

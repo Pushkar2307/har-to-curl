@@ -18,6 +18,15 @@ const SKIP_HEADERS = new Set([
   ':authority',
 ]);
 
+/** Headers whose values are redacted in generated curl (display/copy only; Execute still sends real values) */
+const SENSITIVE_HEADERS = new Set([
+  'authorization',
+  'cookie',
+  'x-api-key',
+  'x-auth-token',
+  'proxy-authorization',
+]);
+
 /**
  * Generate a curl command from a HAR entry.
  */
@@ -47,7 +56,10 @@ export function generateCurl(entry: HarEntry): string {
   );
 
   for (const header of headers) {
-    parts.push(`-H '${escapeShell(`${header.name}: ${header.value}`)}'`);
+    const value = SENSITIVE_HEADERS.has(header.name.toLowerCase())
+      ? '[REDACTED]'
+      : header.value;
+    parts.push(`-H '${escapeShell(`${header.name}: ${value}`)}'`);
   }
 
   // Request body

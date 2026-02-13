@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { LlmService } from '../llm/llm.service';
 import {
@@ -8,7 +8,7 @@ import {
   UploadHarResponseDto,
 } from './dto/analyze-har.dto';
 import { generateCurl } from './utils/curl-generator';
-import { validateUrl } from './utils/url-validator';
+import { assertHttpOrHttpsUrl, validateUrl } from './utils/url-validator';
 import {
   CompactEntry,
   filterEntries,
@@ -38,13 +38,22 @@ export class HarService {
     setInterval(() => this.cleanup(), 5 * 60 * 1000);
   }
 
+  /** Maximum number of entries allowed in a single HAR file (DoS protection) */
+  private readonly MAX_ENTRIES = 50_000;
+
   /**
    * Parse and store an uploaded HAR file.
    */
   async upload(fileContent: string): Promise<UploadHarResponseDto> {
     const harFile = parseHarFile(fileContent);
-    const allCompactEntries = toCompactEntries(harFile.log.entries);
-    const { filtered, stats, breakdown } = filterEntries(harFile.log.entries);
+    const entries = harFile.log.entries;
+    if (entries.length > this.MAX_ENTRIES) {
+      throw new BadRequestException(
+        `HAR file has too many entries (${entries.length}). Maximum allowed is ${this.MAX_ENTRIES}.`,
+      );
+    }
+    const allCompactEntries = toCompactEntries(entries);
+    const { filtered, stats, breakdown } = filterEntries(entries);
     const compactEntries = toCompactEntries(filtered);
 
     // Strip response bodies to save memory — we only need request details for curl
@@ -106,6 +115,7 @@ export class HarService {
 
     // Generate curl command from the matched entry
     const matchedEntry = stored.entries[index];
+    assertHttpOrHttpsUrl(matchedEntry.request.url);
     const curl = generateCurl(matchedEntry);
 
     // Extract full request details for the Execute button

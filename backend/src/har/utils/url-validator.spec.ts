@@ -1,4 +1,4 @@
-import { validateUrl } from './url-validator';
+import { assertHttpOrHttpsUrl, validateUrl } from './url-validator';
 
 // Mock dns/promises to avoid real DNS lookups in tests
 jest.mock('dns/promises', () => ({
@@ -75,5 +75,23 @@ describe('validateUrl', () => {
     lookup.mockResolvedValueOnce({ address: '93.184.216.34', family: 4 });
 
     await expect(validateUrl('https://example.com/api')).resolves.toBeUndefined();
+  });
+});
+
+describe('assertHttpOrHttpsUrl', () => {
+  it('should allow http and https', () => {
+    expect(() => assertHttpOrHttpsUrl('http://example.com')).not.toThrow();
+    expect(() => assertHttpOrHttpsUrl('https://api.example.com/path')).not.toThrow();
+  });
+
+  it('should reject invalid URL format', () => {
+    expect(() => assertHttpOrHttpsUrl('not-a-url')).toThrow('Invalid URL format');
+  });
+
+  it('should reject non-http(s) protocols', () => {
+    expect(() => assertHttpOrHttpsUrl('javascript:alert(1)')).toThrow('not allowed');
+    expect(() => assertHttpOrHttpsUrl('file:///etc/passwd')).toThrow('not allowed');
+    expect(() => assertHttpOrHttpsUrl('ftp://files.example.com')).toThrow('not allowed');
+    expect(() => assertHttpOrHttpsUrl('data:text/html,<script>')).toThrow('not allowed');
   });
 });

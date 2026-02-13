@@ -33,6 +33,24 @@ const BLOCKED_HOSTNAMES = [
 ];
 
 /**
+ * Assert that a URL uses http or https only (sync, no DNS).
+ * Use when generating curl or before using a URL from HAR; for execute, use validateUrl() for full SSRF checks.
+ */
+export function assertHttpOrHttpsUrl(url: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new BadRequestException('Invalid URL format');
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new BadRequestException(
+      `Protocol "${parsed.protocol}" is not allowed. Only http: and https: are permitted.`,
+    );
+  }
+}
+
+/**
  * Validate a URL is safe to request from the server.
  * Throws BadRequestException if the URL is potentially dangerous.
  */
