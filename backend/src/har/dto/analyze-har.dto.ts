@@ -41,7 +41,13 @@ export class AnalyzeHarDto {
   @Transform(({ value }) => value === 'true' || value === true)
   deduplication?: boolean = true;
 
-  /** When true, asks LLM for reasoning + confidence scores (increases completion tokens). Default: true */
+  /** When true, asks LLM for candidate list with confidence scores. Default: true */
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  candidates?: boolean = true;
+
+  /** When true, asks LLM for verbose reasoning text. Default: true */
   @IsBoolean()
   @IsOptional()
   @Transform(({ value }) => value === 'true' || value === true)

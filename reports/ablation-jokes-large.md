@@ -2,55 +2,63 @@
 
 **Date:** 2026-02-13
 **HAR file:** `examples/jokes/jokes.large.har` (1727 total entries, 254 after filtering)
-**Query:** "Find the API that fetches jokes"
+**Query:** "Can you give me a curl command to get 5 jokes via API?"
 
 ## Results
 
-| Configuration | Entries Sent | Prompt Tokens | Completion Tokens | Total Tokens | Latency | Matched Index |
-|---|---|---|---|---|---|---|
-| Baseline (no dedup, no reasoning) | 254 | 42,048 | 67 | 42,115 | 12464ms | [253] |
-| + Deduplication only | 127 | 6,812 | 52 | 6,864 | 8115ms | [253] |
-| + Reasoning only | 254 | 42,175 | 320 | 42,495 | 18101ms | [253] |
-| All features (default) | 127 | 6,939 | 334 | 7,273 | 18604ms | [253] |
+| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | Latency | Match |
+|---|---|---|---|---|---|---|---|---|---|
+| Baseline (minimal) | ✗ | ✗ | ✗ | 254 | 42,055 | 60 | 42,115 | 1837ms | [253] |
+| + Deduplication only | ✓ | ✗ | ✗ | 127 | 6,819 | 69 | 6,888 | 1533ms | [253] |
+| + Candidates only | ✗ | ✓ | ✗ | 254 | 42,155 | 226 | 42,381 | 16775ms | [253] |
+| + Reasoning only | ✗ | ✗ | ✓ | 254 | 42,082 | 122 | 42,204 | 12621ms | [253] |
+| + Candidates + Reasoning | ✗ | ✓ | ✓ | 254 | 42,182 | 309 | 42,491 | 4988ms | [253] |
+| Dedup + Candidates (no reasoning) | ✓ | ✓ | ✗ | 127 | 6,919 | 244 | 7,163 | 4210ms | [253] |
+| All features (default) | ✓ | ✓ | ✓ | 127 | 6,946 | 278 | 7,224 | 8734ms | [253] |
 
-## Analysis
+## Isolated Feature Costs
 
-### Deduplication Impact (prompt tokens)
-- Baseline prompt tokens: **42,048**
-- With deduplication: **6,939**
-- **Savings: 83.5%** of prompt tokens
-- Entries sent to LLM: 254 → 127
+| Feature | Prompt Δ | Completion Δ | Total Δ | What you get |
+|---|---|---|---|---|
+| Deduplication | -35,236 | +9 | -35,227 | URL compaction, fewer entries sent |
+| Candidates + Confidence | +100 | +166 | +266 | Ranked alternatives with confidence bars |
+| Reasoning text | +27 | +62 | +89 | Verbose thought process explanation |
 
-### Reasoning Impact (completion tokens)
-- Without reasoning: **67** completion tokens
-- With reasoning: **334** completion tokens
-- Additional cost: **+267** completion tokens for reasoning + confidence scores
+## Recommended Configuration
 
-### Net Effect
-- Total token savings (all features vs baseline): **82.7%**
-- Latency difference: **+6140ms**
-- Correctness: **All configurations returned the same match** ✓
+**Dedup + Candidates (no reasoning):** 7,163 tokens (83.0% vs baseline)
+- Gets you the high-value UX (confidence bars, candidate list) without the verbose reasoning text
+- Reasoning text adds ~62 completion tokens for limited end-user value
 
-### Trade-off Summary
+**All features:** 7,224 tokens
+- Full transparency including reasoning (82.8% vs baseline)
 
-| Feature | Benefit | Token Cost |
-|---|---|---|
-| Deduplication | 84% fewer prompt tokens (254 → 127 entries) | -35,236 prompt tokens |
-| Reasoning + Confidence | AI transparency, candidate list with confidence scores | +253 completion tokens |
+## Correctness
+
+**All configurations returned the same match** ✓ — feature flags do not affect accuracy.
 
 ## Matched Entry Details
 
-**Baseline (no dedup, no reasoning):** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> This request to 'https://v2.jokeapi.dev/joke/Any?amount=5' is the best match as it specifically fetches jokes, indicated by the endpoint path and the query parameter 'amount' suggesting the number of jokes to retrieve.
+**Baseline (minimal):** [253] https://v2.jokeapi.dev/joke/Any?amount=5
+> The endpoint 'GET https://v2.jokeapi.dev/joke/Any?amount=5' directly matches the user's request for an API that provides 5 jokes, as indicated by the 'amount' query parameter.
 
 **+ Deduplication only:** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint 'GET https://v2.jokeapi.dev/joke/Any?amount=...' is specifically designed to fetch jokes, making it the best match for the user's request.
+> The endpoint 'https://v2.jokeapi.dev/joke/Any?amount=...' is specifically designed to retrieve jokes, and the query parameter 'amount' suggests that it can return a specified number of jokes, making it the best match for the user's request.
+
+**+ Candidates only:** [253] https://v2.jokeapi.dev/joke/Any?amount=5
+> The best match is the endpoint that retrieves 5 jokes, which directly aligns with the user's request for a curl command to get jokes via an API.
 
 **+ Reasoning only:** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint `https://v2.jokeapi.dev/joke/Any?amount=5` is the best match because it specifically fetches jokes, which directly fulfills the user's request.
+> This endpoint is the best match because it directly requests 5 jokes from the Joke API, which aligns perfectly with the user's request.
+
+**+ Candidates + Reasoning:** [253] https://v2.jokeapi.dev/joke/Any?amount=5
+> The endpoint `GET https://v2.jokeapi.dev/joke/Any?amount=5` is the best match as it directly fulfills the user's request for 5 jokes via an API.
+
+**Dedup + Candidates (no reasoning):** [253] https://v2.jokeapi.dev/joke/Any?amount=5
+> The best match is the endpoint that allows fetching jokes directly, as it specifically includes a parameter for the amount of jokes requested, making it highly relevant to the user's request.
 
 **All features (default):** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint 'https://v2.jokeapi.dev/joke/Any?amount=...' is the best match as it explicitly indicates that it fetches jokes, aligning perfectly with the user's request.
+> The endpoint `GET https://v2.jokeapi.dev/joke/Any?amount=...` is the best match as it directly supports retrieving a specified number of jokes, which is exactly what the user is looking for.
 
 ---
 *Generated by ablation.ts*

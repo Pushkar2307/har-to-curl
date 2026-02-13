@@ -33,7 +33,7 @@ export class LlmService {
   async identifyRequest(
     entrySummary: string,
     userDescription: string,
-    options: { reasoning?: boolean } = {},
+    options: { candidates?: boolean; reasoning?: boolean } = {},
   ): Promise<{
     index: number;
     explanation: string;
@@ -42,6 +42,7 @@ export class LlmService {
     tokenUsage: { prompt: number; completion: number; total: number };
     model: string;
   }> {
+    const withCandidates = options.candidates !== false; // default true
     const withReasoning = options.reasoning !== false; // default true
 
     const baseInstructions = `You are an expert at analyzing HTTP traffic. You will be given a list of HTTP requests captured from a browser session (HAR file), and a user's description of an API they want to find.
@@ -60,33 +61,39 @@ Your task:
 3. Pay attention to URL path patterns and query parameter names that suggest the described functionality.
 4. Pick the best match from your candidates.`;
 
-    const minimalResponseFormat = `
-Return your answer as JSON with these fields:
-- "index": The integer index of the single best match
-- "explanation": A 1-2 sentence summary of why this is the best match
+    // Build response format dynamically based on flags
+    const responseFields: string[] = [];
+    if (withReasoning) {
+      responseFields.push('- "reasoning": A brief step-by-step explanation of how you analyzed the requests (2-4 sentences describing your thought process)');
+    }
+    if (withCandidates) {
+      responseFields.push('- "candidates": An array of the top 2-3 candidate matches, each with "index", "url" (shortened), "reason" (why it could match), and "confidence" (0-100 integer representing how confident you are that this is the correct match)');
+    }
+    responseFields.push('- "index": The integer index of the single best match');
+    responseFields.push('- "explanation": A 1-2 sentence summary of why this is the best match');
 
-Respond ONLY with valid JSON. No markdown, no code fences.`;
+    let responseFormat = `\nReturn your answer as JSON with these fields:\n${responseFields.join('\n')}`;
 
-    const fullResponseFormat = `
-Return your answer as JSON with these fields:
-- "reasoning": A brief step-by-step explanation of how you analyzed the requests (2-4 sentences describing your thought process)
-- "candidates": An array of the top 2-3 candidate matches, each with "index", "url" (shortened), "reason" (why it could match), and "confidence" (0-100 integer representing how confident you are that this is the correct match)
-- "index": The integer index of the single best match
-- "explanation": A 1-2 sentence summary of why this is the best match
+    if (withCandidates) {
+      responseFormat += `\n\nConfidence scoring guide: 90-100 = almost certainly the right endpoint, 70-89 = likely correct, 50-69 = possible but uncertain, below 50 = unlikely but worth mentioning.`;
+    }
 
-Confidence scoring guide: 90-100 = almost certainly the right endpoint, 70-89 = likely correct, 50-69 = possible but uncertain, below 50 = unlikely but worth mentioning.
+    responseFormat += `\n\nRespond ONLY with valid JSON. No markdown, no code fences.`;
 
-Respond ONLY with valid JSON. No markdown, no code fences.`;
-
-    const systemPrompt = baseInstructions + (withReasoning ? fullResponseFormat : minimalResponseFormat);
+    const systemPrompt = baseInstructions + responseFormat;
 
     const userPrompt = `User wants to find: "${userDescription}"
 
 Here are the captured HTTP requests:
 ${entrySummary}`;
 
+    // Estimate max_tokens based on what we're asking for
+    let maxTokens = 150; // minimal: just index + explanation
+    if (withCandidates) maxTokens += 200; // candidates with confidence
+    if (withReasoning) maxTokens += 150; // reasoning text
+
     this.logger.log(
-      `Querying LLM (${this.model}) with ${entrySummary.split('\n').length} entries [reasoning=${withReasoning}]`,
+      `Querying LLM (${this.model}) with ${entrySummary.split('\n').length} entries [candidates=${withCandidates}, reasoning=${withReasoning}]`,
     );
 
     const response = await this.openai.chat.completions.create({
@@ -96,7 +103,7 @@ ${entrySummary}`;
         { role: 'user', content: userPrompt },
       ],
       temperature: 0.1, // Low temperature for deterministic matching
-      max_tokens: withReasoning ? 500 : 150, // Minimal output when reasoning is off
+      max_tokens: maxTokens,
     });
 
     const content = response.choices[0]?.message?.content?.trim();

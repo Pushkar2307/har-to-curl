@@ -70,9 +70,10 @@ export class HarService {
   async analyze(
     harId: string,
     description: string,
-    options: { deduplication?: boolean; reasoning?: boolean } = {},
+    options: { deduplication?: boolean; candidates?: boolean; reasoning?: boolean } = {},
   ): Promise<AnalyzeHarResponseDto> {
     const deduplicate = options.deduplication !== false; // default true
+    const withCandidates = options.candidates !== false; // default true
     const reasoning = options.reasoning !== false; // default true
 
     const stored = this.store.get(harId);
@@ -87,13 +88,13 @@ export class HarService {
       createLlmSummary(stored.compactEntries, deduplicate);
 
     this.logger.log(
-      `Analyzing HAR ${harId}: ${originalEntries} entries → ${uniquePatterns} unique patterns for LLM [dedup=${deduplicate}, reasoning=${reasoning}]`,
+      `Analyzing HAR ${harId}: ${originalEntries} entries → ${uniquePatterns} unique patterns for LLM [dedup=${deduplicate}, candidates=${withCandidates}, reasoning=${reasoning}]`,
     );
 
     // Query the LLM to identify the best match
     const llmStart = Date.now();
     const { index, explanation, reasoning: llmReasoning, candidates, tokenUsage, model } =
-      await this.llmService.identifyRequest(summary, description, { reasoning });
+      await this.llmService.identifyRequest(summary, description, { candidates: withCandidates, reasoning });
     const llmDuration = Date.now() - llmStart;
 
     // Validate the returned index

@@ -70,7 +70,7 @@ interface AnalyzeResult {
 async function analyzeHar(
   harId: string,
   description: string,
-  options: { deduplication: boolean; reasoning: boolean },
+  options: { deduplication: boolean; candidates: boolean; reasoning: boolean },
 ): Promise<AnalyzeResult> {
   const res = await fetch(`${API_BASE}/har/analyze`, {
     method: 'POST',
@@ -83,11 +83,15 @@ async function analyzeHar(
 }
 
 // --- Feature flag combinations ---
+// Tests each feature independently to measure its isolated token cost
 const CONFIGS = [
-  { name: 'Baseline (no dedup, no reasoning)', deduplication: false, reasoning: false },
-  { name: '+ Deduplication only', deduplication: true, reasoning: false },
-  { name: '+ Reasoning only', deduplication: false, reasoning: true },
-  { name: 'All features (default)', deduplication: true, reasoning: true },
+  { name: 'Baseline (minimal)',              deduplication: false, candidates: false, reasoning: false },
+  { name: '+ Deduplication only',            deduplication: true,  candidates: false, reasoning: false },
+  { name: '+ Candidates only',              deduplication: false, candidates: true,  reasoning: false },
+  { name: '+ Reasoning only',               deduplication: false, candidates: false, reasoning: true },
+  { name: '+ Candidates + Reasoning',       deduplication: false, candidates: true,  reasoning: true },
+  { name: 'Dedup + Candidates (no reasoning)', deduplication: true, candidates: true, reasoning: false },
+  { name: 'All features (default)',          deduplication: true,  candidates: true,  reasoning: true },
 ];
 
 // --- Main ---
@@ -114,6 +118,7 @@ async function main() {
   const results: Array<{
     config: string;
     dedup: boolean;
+    withCandidates: boolean;
     reasoning: boolean;
     entriesSent: number;
     promptTokens: number;
@@ -123,7 +128,7 @@ async function main() {
     matchedIndex: number;
     matchedUrl: string;
     explanation: string;
-    candidates: number;
+    candidateCount: number;
   }> = [];
 
   for (const config of CONFIGS) {
@@ -131,12 +136,14 @@ async function main() {
 
     const result = await analyzeHar(upload.id, query, {
       deduplication: config.deduplication,
+      candidates: config.candidates,
       reasoning: config.reasoning,
     });
 
     const row = {
       config: config.name,
       dedup: config.deduplication,
+      withCandidates: config.candidates,
       reasoning: config.reasoning,
       entriesSent: result.entriesAnalyzed,
       promptTokens: result.tokenUsage.prompt,
@@ -146,7 +153,7 @@ async function main() {
       matchedIndex: result.matchedEntry.index,
       matchedUrl: result.matchedEntry.url,
       explanation: result.explanation,
-      candidates: result.candidates?.length || 0,
+      candidateCount: result.candidates?.length || 0,
     };
 
     results.push(row);
@@ -174,6 +181,7 @@ function generateReport(
   results: Array<{
     config: string;
     dedup: boolean;
+    withCandidates: boolean;
     reasoning: boolean;
     entriesSent: number;
     promptTokens: number;
@@ -183,7 +191,7 @@ function generateReport(
     matchedIndex: number;
     matchedUrl: string;
     explanation: string;
-    candidates: number;
+    candidateCount: number;
   }>,
 ): string {
   const baseline = results[0];
@@ -199,56 +207,65 @@ function generateReport(
 
   // Main results table
   md += `## Results\n\n`;
-  md += `| Configuration | Entries Sent | Prompt Tokens | Completion Tokens | Total Tokens | Latency | Matched Index |\n`;
-  md += `|---|---|---|---|---|---|---|\n`;
+  md += `| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | Latency | Match |\n`;
+  md += `|---|---|---|---|---|---|---|---|---|---|\n`;
 
   for (const r of results) {
-    md += `| ${r.config} | ${r.entriesSent} | ${r.promptTokens.toLocaleString()} | ${r.completionTokens} | ${r.totalTokens.toLocaleString()} | ${r.latencyMs}ms | [${r.matchedIndex}] |\n`;
+    md += `| ${r.config} | ${r.dedup ? '✓' : '✗'} | ${r.withCandidates ? '✓' : '✗'} | ${r.reasoning ? '✓' : '✗'} | ${r.entriesSent} | ${r.promptTokens.toLocaleString()} | ${r.completionTokens} | ${r.totalTokens.toLocaleString()} | ${r.latencyMs}ms | [${r.matchedIndex}] |\n`;
   }
 
   md += `\n`;
 
-  // Savings analysis
-  md += `## Analysis\n\n`;
+  // Isolated feature costs
+  md += `## Isolated Feature Costs\n\n`;
 
-  const promptSavings = ((1 - allFeatures.promptTokens / baseline.promptTokens) * 100).toFixed(1);
-  const completionCost = allFeatures.completionTokens - baseline.completionTokens;
-  const totalSavings = ((1 - allFeatures.totalTokens / baseline.totalTokens) * 100).toFixed(1);
-  const latencyDiff = allFeatures.latencyMs - baseline.latencyMs;
+  const dedupOnly = results.find((r) => r.dedup && !r.withCandidates && !r.reasoning);
+  const candidatesOnly = results.find((r) => !r.dedup && r.withCandidates && !r.reasoning);
+  const reasoningOnly = results.find((r) => !r.dedup && !r.withCandidates && r.reasoning);
+  const candidatesPlusReasoning = results.find((r) => !r.dedup && r.withCandidates && r.reasoning);
+  const dedupPlusCandidates = results.find((r) => r.dedup && r.withCandidates && !r.reasoning);
 
-  md += `### Deduplication Impact (prompt tokens)\n`;
-  md += `- Baseline prompt tokens: **${baseline.promptTokens.toLocaleString()}**\n`;
-  md += `- With deduplication: **${allFeatures.promptTokens.toLocaleString()}**\n`;
-  md += `- **Savings: ${promptSavings}%** of prompt tokens\n`;
-  md += `- Entries sent to LLM: ${baseline.entriesSent} → ${allFeatures.entriesSent}\n\n`;
-
-  md += `### Reasoning Impact (completion tokens)\n`;
-  md += `- Without reasoning: **${baseline.completionTokens}** completion tokens\n`;
-  md += `- With reasoning: **${allFeatures.completionTokens}** completion tokens\n`;
-  md += `- Additional cost: **+${completionCost}** completion tokens for reasoning + confidence scores\n\n`;
-
-  md += `### Net Effect\n`;
-  md += `- Total token savings (all features vs baseline): **${totalSavings}%**\n`;
-  md += `- Latency difference: **${latencyDiff > 0 ? '+' : ''}${latencyDiff}ms**\n`;
-  md += `- Correctness: ${allSameMatch ? '**All configurations returned the same match** ✓' : '⚠️ Configurations returned different matches — see details below'}\n\n`;
-
-  md += `### Trade-off Summary\n\n`;
-  md += `| Feature | Benefit | Token Cost |\n`;
-  md += `|---|---|---|\n`;
-
-  const dedupOnly = results.find((r) => r.dedup && !r.reasoning);
-  const reasonOnly = results.find((r) => !r.dedup && r.reasoning);
+  md += `| Feature | Prompt Δ | Completion Δ | Total Δ | What you get |\n`;
+  md += `|---|---|---|---|---|\n`;
 
   if (dedupOnly) {
-    const saved = baseline.promptTokens - dedupOnly.promptTokens;
-    md += `| Deduplication | ${((saved / baseline.promptTokens) * 100).toFixed(0)}% fewer prompt tokens (${baseline.entriesSent} → ${dedupOnly.entriesSent} entries) | -${saved.toLocaleString()} prompt tokens |\n`;
+    const promptDelta = dedupOnly.promptTokens - baseline.promptTokens;
+    const compDelta = dedupOnly.completionTokens - baseline.completionTokens;
+    const totalDelta = dedupOnly.totalTokens - baseline.totalTokens;
+    md += `| Deduplication | ${promptDelta >= 0 ? '+' : ''}${promptDelta.toLocaleString()} | ${compDelta >= 0 ? '+' : ''}${compDelta} | ${totalDelta >= 0 ? '+' : ''}${totalDelta.toLocaleString()} | URL compaction, fewer entries sent |\n`;
   }
-  if (reasonOnly) {
-    const added = reasonOnly.completionTokens - baseline.completionTokens;
-    md += `| Reasoning + Confidence | AI transparency, candidate list with confidence scores | +${added} completion tokens |\n`;
+  if (candidatesOnly) {
+    const promptDelta = candidatesOnly.promptTokens - baseline.promptTokens;
+    const compDelta = candidatesOnly.completionTokens - baseline.completionTokens;
+    const totalDelta = candidatesOnly.totalTokens - baseline.totalTokens;
+    md += `| Candidates + Confidence | +${promptDelta} | +${compDelta} | +${totalDelta} | Ranked alternatives with confidence bars |\n`;
+  }
+  if (reasoningOnly) {
+    const promptDelta = reasoningOnly.promptTokens - baseline.promptTokens;
+    const compDelta = reasoningOnly.completionTokens - baseline.completionTokens;
+    const totalDelta = reasoningOnly.totalTokens - baseline.totalTokens;
+    md += `| Reasoning text | +${promptDelta} | +${compDelta} | +${totalDelta} | Verbose thought process explanation |\n`;
   }
 
   md += `\n`;
+
+  // Recommended config
+  md += `## Recommended Configuration\n\n`;
+
+  if (dedupPlusCandidates) {
+    const savings = ((1 - dedupPlusCandidates.totalTokens / baseline.totalTokens) * 100).toFixed(1);
+    md += `**Dedup + Candidates (no reasoning):** ${dedupPlusCandidates.totalTokens.toLocaleString()} tokens (${savings}% vs baseline)\n`;
+    md += `- Gets you the high-value UX (confidence bars, candidate list) without the verbose reasoning text\n`;
+    md += `- Reasoning text adds ~${reasoningOnly ? reasoningOnly.completionTokens - baseline.completionTokens : '?'} completion tokens for limited end-user value\n\n`;
+  }
+
+  md += `**All features:** ${allFeatures.totalTokens.toLocaleString()} tokens\n`;
+  const allSavings = ((1 - allFeatures.totalTokens / baseline.totalTokens) * 100).toFixed(1);
+  md += `- Full transparency including reasoning (${allSavings}% vs baseline)\n\n`;
+
+  // Correctness
+  md += `## Correctness\n\n`;
+  md += `${allSameMatch ? '**All configurations returned the same match** ✓ — feature flags do not affect accuracy.' : '⚠️ Configurations returned different matches — see details below.'}\n\n`;
 
   // Matched entry details
   md += `## Matched Entry Details\n\n`;

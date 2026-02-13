@@ -2,55 +2,63 @@
 
 **Date:** 2026-02-13
 **HAR file:** `examples/weather/www.sfgate.com.har` (117 total entries, 12 after filtering)
-**Query:** "Return the API that fetches the weather of San Francisco"
+**Query:** "Return the API that fetches the weather of San Francisco."
 
 ## Results
 
-| Configuration | Entries Sent | Prompt Tokens | Completion Tokens | Total Tokens | Latency | Matched Index |
-|---|---|---|---|---|---|---|
-| Baseline (no dedup, no reasoning) | 12 | 1,421 | 49 | 1,470 | 1443ms | [11] |
-| + Deduplication only | 12 | 805 | 46 | 851 | 918ms | [11] |
-| + Reasoning only | 12 | 1,548 | 265 | 1,813 | 5133ms | [11] |
-| All features (default) | 12 | 932 | 189 | 1,121 | 4135ms | [11] |
+| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | Latency | Match |
+|---|---|---|---|---|---|---|---|---|---|
+| Baseline (minimal) | ✗ | ✗ | ✗ | 12 | 1,421 | 66 | 1,487 | 1522ms | [11] |
+| + Deduplication only | ✓ | ✗ | ✗ | 12 | 805 | 46 | 851 | 1147ms | [11] |
+| + Candidates only | ✗ | ✓ | ✗ | 12 | 1,521 | 188 | 1,709 | 3024ms | [11] |
+| + Reasoning only | ✗ | ✗ | ✓ | 12 | 1,448 | 117 | 1,565 | 1707ms | [11] |
+| + Candidates + Reasoning | ✗ | ✓ | ✓ | 12 | 1,548 | 278 | 1,826 | 4760ms | [11] |
+| Dedup + Candidates (no reasoning) | ✓ | ✓ | ✗ | 12 | 905 | 185 | 1,090 | 2740ms | [11] |
+| All features (default) | ✓ | ✓ | ✓ | 12 | 932 | 321 | 1,253 | 7710ms | [11] |
 
-## Analysis
+## Isolated Feature Costs
 
-### Deduplication Impact (prompt tokens)
-- Baseline prompt tokens: **1,421**
-- With deduplication: **932**
-- **Savings: 34.4%** of prompt tokens
-- Entries sent to LLM: 12 → 12
+| Feature | Prompt Δ | Completion Δ | Total Δ | What you get |
+|---|---|---|---|---|
+| Deduplication | -616 | -20 | -636 | URL compaction, fewer entries sent |
+| Candidates + Confidence | +100 | +122 | +222 | Ranked alternatives with confidence bars |
+| Reasoning text | +27 | +51 | +78 | Verbose thought process explanation |
 
-### Reasoning Impact (completion tokens)
-- Without reasoning: **49** completion tokens
-- With reasoning: **189** completion tokens
-- Additional cost: **+140** completion tokens for reasoning + confidence scores
+## Recommended Configuration
 
-### Net Effect
-- Total token savings (all features vs baseline): **23.7%**
-- Latency difference: **+2692ms**
-- Correctness: **All configurations returned the same match** ✓
+**Dedup + Candidates (no reasoning):** 1,090 tokens (26.7% vs baseline)
+- Gets you the high-value UX (confidence bars, candidate list) without the verbose reasoning text
+- Reasoning text adds ~51 completion tokens for limited end-user value
 
-### Trade-off Summary
+**All features:** 1,253 tokens
+- Full transparency including reasoning (15.7% vs baseline)
 
-| Feature | Benefit | Token Cost |
-|---|---|---|
-| Deduplication | 43% fewer prompt tokens (12 → 12 entries) | -616 prompt tokens |
-| Reasoning + Confidence | AI transparency, candidate list with confidence scores | +216 completion tokens |
+## Correctness
+
+**All configurations returned the same match** ✓ — feature flags do not affect accuracy.
 
 ## Matched Entry Details
 
-**Baseline (no dedup, no reasoning):** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
-> This request fetches weather data specifically for San Francisco, as indicated by the URL path and the query parameter 'format=json', which suggests it returns data in JSON format.
+**Baseline (minimal):** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
+> This request to 'https://forecast7.com/en/37d77n122d42/san-francisco/?format=json' specifically fetches weather data for San Francisco, returning a JSON response, making it the best match for the user's request.
 
 **+ Deduplication only:** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
 > This request fetches weather data specifically for San Francisco, as indicated by the URL path containing 'san-francisco' and the response format being JSON.
 
+**+ Candidates only:** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
+> The best match is the endpoint that directly fetches weather data for San Francisco in JSON format, making it highly relevant to the user's request.
+
 **+ Reasoning only:** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
-> The request at index [11] is the best match as it directly fetches weather data for San Francisco in JSON format, aligning perfectly with the user's request.
+> This request directly fetches weather data for San Francisco in JSON format, aligning perfectly with the user's request for an API that provides weather information for that location.
+
+**+ Candidates + Reasoning:** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
+> The best match is the endpoint at index [11] because it directly fetches weather data for San Francisco in JSON format, aligning perfectly with the user's request.
+
+**Dedup + Candidates (no reasoning):** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
+> The best match is the endpoint that includes 'san-francisco' in its URL and returns weather data, making it highly relevant to the user's request for weather information.
 
 **All features (default):** [11] https://forecast7.com/en/37d77n122d42/san-francisco/?format=json
-> This is the best match because it directly references San Francisco in the URL and returns weather-related data in JSON format.
+> The request at index [11] is the best match as it directly fetches weather data for San Francisco, making it highly relevant to the user's request.
 
 ---
 *Generated by ablation.ts*
