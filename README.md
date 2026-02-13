@@ -149,8 +149,6 @@ The "Execute" button replays the **exact request** captured in the HAR file. Thi
 2. Modify parameters (e.g., change `"calories":2000` to `"calories":1000`)
 3. Use the request structure to integrate the API into their own code
 
-For example, the RecipeCal API (`POST /api/bookapi`) returns `{"error": true}` when replayed because it uses session-specific `resource_uri` values. However, the curl command correctly reveals the full API structure: endpoint, method, headers, and the complete JSON body schema with nutrition profiles, meal configuration, and user preferences.
-
 ## Tech Stack
 
 - **Frontend:** TypeScript, Next.js 15, Tailwind CSS v4, shadcn/ui
