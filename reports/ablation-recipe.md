@@ -4,36 +4,51 @@
 **HAR file:** `examples/recipe/recipescal.com.har` (37 total entries, 5 after filtering)
 **Query:** "Can you reverse engineer the API that gives me recipes for a given portion and calorie count?"
 
-## Results
+## Processing Pipeline
+
+Shows how each stage reduces the number of entries before the LLM sees them.
+
+| Stage | Entries | Removed | Cumulative Reduction |
+|---|---|---|---|
+| **Raw HAR entries** | 37 | — | — |
+| Remove HTML responses | 36 | -1 | -2.7% |
+| Remove static assets (MIME type) | 7 | -29 | -81.1% |
+| Remove static assets (URL pattern) | 6 | -1 | -83.8% |
+| Remove tracking/analytics | 5 | -1 | -86.5% |
+| **Deduplicate** (same endpoint pattern) | **3** | -2 | -91.9% |
+
+> **Summary:** 37 raw entries → 5 after filtering (86.5% removed) → 3 unique patterns after dedup (91.9% total reduction)
+
+## LLM Feature Flag Ablation
 
 *Latency = LLM API call time only (excludes parsing, filtering, dedup)*
 
 | Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | % vs Baseline | Latency | Match |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Baseline (minimal) | ✗ | ✗ | ✗ | 5 | 421 | 61 | 482 | — | 3775ms | [0] |
-| + Deduplication only | ✓ | ✗ | ✗ | 3 | 378 | 53 | 431 | -10.6% | 2106ms | [0] |
-| + Candidates only | ✗ | ✓ | ✗ | 5 | 521 | 172 | 693 | +43.8% | 3618ms | [0] |
-| + Reasoning only | ✗ | ✗ | ✓ | 5 | 448 | 114 | 562 | +16.6% | 3216ms | [0] |
-| + Candidates + Reasoning | ✗ | ✓ | ✓ | 5 | 548 | 256 | 804 | +66.8% | 5985ms | [0] |
-| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 3 | 478 | 168 | 646 | +34.0% | 3327ms | [0] |
-| All features (with reasoning) | ✓ | ✓ | ✓ | 3 | 505 | 239 | 744 | +54.4% | 5311ms | [0] |
+| Baseline (minimal) | ✗ | ✗ | ✗ | 5 | 421 | 60 | 481 | — | 1715ms | [0] |
+| + Deduplication only | ✓ | ✗ | ✗ | 3 | 378 | 53 | 431 | -10.4% | 1010ms | [0] |
+| + Candidates only | ✗ | ✓ | ✗ | 5 | 521 | 174 | 695 | +44.5% | 3927ms | [0] |
+| + Reasoning only | ✗ | ✗ | ✓ | 5 | 448 | 140 | 588 | +22.2% | 3124ms | [0] |
+| + Candidates + Reasoning | ✗ | ✓ | ✓ | 5 | 548 | 236 | 784 | +63.0% | 4391ms | [0] |
+| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 3 | 478 | 195 | 673 | +39.9% | 3559ms | [0] |
+| All features (with reasoning) | ✓ | ✓ | ✓ | 3 | 505 | 227 | 732 | +52.2% | 3830ms | [0] |
 
 ## Isolated Feature Costs
 
 | Feature | Prompt Δ | Completion Δ | Total Δ | What you get |
 |---|---|---|---|---|
-| Deduplication | -43 | -8 | -51 | URL compaction, fewer entries sent |
-| Candidates + Confidence | +100 | +111 | +211 | Ranked alternatives with confidence bars |
-| Reasoning text | +27 | +53 | +80 | Verbose thought process explanation |
+| Deduplication | -43 | -7 | -50 | URL compaction, fewer entries sent |
+| Candidates + Confidence | +100 | +114 | +214 | Ranked alternatives with confidence bars |
+| Reasoning text | +27 | +80 | +107 | Verbose thought process explanation |
 
 ## Shipping Default vs All Features
 
-**Dedup + Candidates (shipping default):** 646 tokens (-34.0% vs baseline)
+**Dedup + Candidates (shipping default):** 673 tokens (-39.9% vs baseline)
 - Confidence bars + candidate list provide the high-value UX
-- Reasoning text omitted — adds ~53 completion tokens for limited end-user value
+- Reasoning text omitted — adds ~80 completion tokens for limited end-user value
 
-**All features (with reasoning):** 744 tokens
-- Full transparency including verbose reasoning text (-54.4% vs baseline)
+**All features (with reasoning):** 732 tokens
+- Full transparency including verbose reasoning text (-52.2% vs baseline)
 - Available via `reasoning: true` flag for debugging or detailed analysis
 
 ## Correctness
@@ -43,22 +58,22 @@
 ## Matched Entry Details
 
 **Baseline (minimal):** [0] https://recipescal.com/api/bookapi
-> The endpoint '/api/bookapi' is likely related to retrieving recipes, as it is the only one that suggests a broader functionality beyond just ingredients or greetings, making it the best match for obtaining recipes based on portion and calorie count.
+> The endpoint '/api/bookapi' is likely related to retrieving recipes, as it is the only one that suggests a broader functionality beyond basic greetings or ingredient listings, making it the best candidate for providing recipes based on specific criteria.
 
 **+ Deduplication only:** [0] https://recipescal.com/api/bookapi
 > The endpoint '/api/bookapi' is likely related to recipes, and since it returns JSON data, it is the best candidate for providing recipes based on specific parameters like portion and calorie count.
 
 **+ Candidates only:** [0] https://recipescal.com/api/bookapi
-> The best match is the 'bookapi' endpoint, as it likely returns recipe data, which aligns with the user's request for recipes based on portion and calorie count.
+> The best match is the 'bookapi' endpoint, as it likely returns recipes, which is directly related to the user's request for recipes based on specific criteria.
 
 **+ Reasoning only:** [0] https://recipescal.com/api/bookapi
-> '/api/bookapi' is the best match as it likely pertains to recipe data, which aligns with the user's interest in obtaining recipes based on specific criteria.
+> '/api/bookapi' is the most relevant endpoint as it likely deals with recipes, making it the best candidate for retrieving recipes based on portion and calorie count.
 
 **+ Candidates + Reasoning:** [0] https://recipescal.com/api/bookapi
-> The '/api/bookapi' endpoint is the best match as it likely provides access to recipes, which is directly relevant to the user's request for recipes based on specific criteria.
+> The '/api/bookapi' endpoint is the best match as it is likely to provide recipe data, which is what the user is seeking.
 
 **Dedup + Candidates (default):** [0] https://recipescal.com/api/bookapi
-> The 'bookapi' endpoint is the best match as it likely provides recipe data, which aligns with the user's request for recipes based on specific criteria.
+> The 'bookapi' endpoint is the best match as it likely relates to recipes, making it a strong candidate for providing recipe data based on user-defined criteria like portions and calorie counts.
 
 **All features (with reasoning):** [0] https://recipescal.com/api/bookapi
 > The '/api/bookapi' endpoint is the best match as it likely provides recipe data, which aligns closely with the user's request for recipes based on portion and calorie count.

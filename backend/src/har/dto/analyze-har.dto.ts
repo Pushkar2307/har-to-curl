@@ -24,6 +24,15 @@ export class UploadHarResponseDto {
     removed: number;
     kept: number;
   };
+  filterBreakdown: {
+    html: number;
+    staticAssetMime: number;
+    staticAssetUrl: number;
+    tracking: number;
+    dataBlob: number;
+    redirects: number;
+    options: number;
+  };
 }
 
 export class AnalyzeHarDto {

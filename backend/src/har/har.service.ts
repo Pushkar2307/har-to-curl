@@ -44,7 +44,7 @@ export class HarService {
   async upload(fileContent: string): Promise<UploadHarResponseDto> {
     const harFile = parseHarFile(fileContent);
     const allCompactEntries = toCompactEntries(harFile.log.entries);
-    const { filtered, stats } = filterEntries(harFile.log.entries);
+    const { filtered, stats, breakdown } = filterEntries(harFile.log.entries);
     const compactEntries = toCompactEntries(filtered);
 
     // Strip response bodies to save memory — we only need request details for curl
@@ -61,7 +61,7 @@ export class HarService {
       `Stored HAR ${id}: ${stats.total} total → ${stats.kept} kept (${stats.removed} filtered out)`,
     );
 
-    return { id, entries: compactEntries, allEntries: allCompactEntries, stats };
+    return { id, entries: compactEntries, allEntries: allCompactEntries, stats, filterBreakdown: breakdown };
   }
 
   /**

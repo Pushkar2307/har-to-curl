@@ -138,35 +138,56 @@ function isTrackingDomain(url: string): boolean {
  * 4. Remove redirects (3xx) and failures that are likely not the target
  * 5. Keep JSON/XML/plain-text API responses
  */
+export interface FilterBreakdown {
+  html: number;
+  staticAssetMime: number;
+  staticAssetUrl: number;
+  tracking: number;
+  dataBlob: number;
+  redirects: number;
+  options: number;
+}
+
 export function filterEntries(entries: HarEntry[]): {
   filtered: HarEntry[];
   stats: { total: number; removed: number; kept: number };
+  breakdown: FilterBreakdown;
 } {
+  const breakdown: FilterBreakdown = {
+    html: 0,
+    staticAssetMime: 0,
+    staticAssetUrl: 0,
+    tracking: 0,
+    dataBlob: 0,
+    redirects: 0,
+    options: 0,
+  };
+
   const filtered = entries.filter((entry) => {
     const { request, response } = entry;
     const mimeType = response.content.mimeType || '';
     const url = request.url;
 
     // Skip HTML responses — assignment says target API is not returning HTML
-    if (mimeType.includes('text/html')) return false;
+    if (mimeType.includes('text/html')) { breakdown.html++; return false; }
 
     // Skip static assets by MIME type
-    if (isStaticAssetType(mimeType)) return false;
+    if (isStaticAssetType(mimeType)) { breakdown.staticAssetMime++; return false; }
 
     // Skip static assets by URL extension
-    if (isStaticAssetUrl(url)) return false;
+    if (isStaticAssetUrl(url)) { breakdown.staticAssetUrl++; return false; }
 
     // Skip tracking/analytics domains
-    if (isTrackingDomain(url)) return false;
+    if (isTrackingDomain(url)) { breakdown.tracking++; return false; }
 
     // Skip data: URLs and blob: URLs
-    if (url.startsWith('data:') || url.startsWith('blob:')) return false;
+    if (url.startsWith('data:') || url.startsWith('blob:')) { breakdown.dataBlob++; return false; }
 
     // Skip redirects (they're not the final API call)
-    if (response.status >= 300 && response.status < 400) return false;
+    if (response.status >= 300 && response.status < 400) { breakdown.redirects++; return false; }
 
     // Skip preflight OPTIONS requests
-    if (request.method === 'OPTIONS') return false;
+    if (request.method === 'OPTIONS') { breakdown.options++; return false; }
 
     return true;
   });
@@ -178,6 +199,7 @@ export function filterEntries(entries: HarEntry[]): {
       removed: entries.length - filtered.length,
       kept: filtered.length,
     },
+    breakdown,
   };
 }
 

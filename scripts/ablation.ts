@@ -37,7 +37,23 @@ function parseArgs(): { harPath: string; query: string } {
 }
 
 // --- API helpers ---
-async function uploadHar(filePath: string): Promise<{ id: string; stats: { total: number; kept: number } }> {
+interface FilterBreakdown {
+  html: number;
+  staticAssetMime: number;
+  staticAssetUrl: number;
+  tracking: number;
+  dataBlob: number;
+  redirects: number;
+  options: number;
+}
+
+interface UploadResult {
+  id: string;
+  stats: { total: number; removed: number; kept: number };
+  filterBreakdown: FilterBreakdown;
+}
+
+async function uploadHar(filePath: string): Promise<UploadResult> {
   const absolutePath = path.resolve(filePath);
   const fileBuffer = fs.readFileSync(absolutePath);
   const blob = new Blob([fileBuffer], { type: 'application/json' });
@@ -111,6 +127,7 @@ async function main() {
   console.log('Uploading HAR file...');
   const upload = await uploadHar(harPath);
   console.log(`  Uploaded: ${upload.stats.total} total entries, ${upload.stats.kept} after filtering`);
+  console.log(`  Filter breakdown:`, upload.filterBreakdown);
   console.log(`  HAR ID: ${upload.id}`);
   console.log();
 
@@ -169,7 +186,7 @@ async function main() {
   // Save report to file
   const reportsDir = path.resolve('reports');
   if (!fs.existsSync(reportsDir)) fs.mkdirSync(reportsDir, { recursive: true });
-  const reportPath = path.join(reportsDir, `ablation-${path.basename(harPath, '.har')}-${Date.now()}.md`);
+  const reportPath = path.join(reportsDir, `ablation-${path.basename(harPath, '.har')}.md`);
   fs.writeFileSync(reportPath, report);
   console.log(`\nReport saved to: ${reportPath}`);
 }
@@ -177,7 +194,7 @@ async function main() {
 function generateReport(
   harPath: string,
   query: string,
-  upload: { stats: { total: number; kept: number } },
+  upload: UploadResult,
   results: Array<{
     config: string;
     dedup: boolean;
@@ -200,13 +217,56 @@ function generateReport(
   // Check if all configs matched the same entry
   const allSameMatch = results.every((r) => r.matchedIndex === results[0].matchedIndex);
 
+  // Get dedup count from the config that has dedup on + nothing else
+  const dedupConfig = results.find((r) => r.dedup && !r.withCandidates && !r.reasoning);
+  const afterDedup = dedupConfig ? dedupConfig.entriesSent : upload.stats.kept;
+
   let md = `# Ablation Study: Token Efficiency vs Explainability\n\n`;
   md += `**Date:** ${new Date().toISOString().split('T')[0]}\n`;
   md += `**HAR file:** \`${harPath}\` (${upload.stats.total} total entries, ${upload.stats.kept} after filtering)\n`;
   md += `**Query:** "${query}"\n\n`;
 
+  // Processing Pipeline section
+  const fb = upload.filterBreakdown;
+  md += `## Processing Pipeline\n\n`;
+  md += `Shows how each stage reduces the number of entries before the LLM sees them.\n\n`;
+
+  md += `| Stage | Entries | Removed | Cumulative Reduction |\n`;
+  md += `|---|---|---|---|\n`;
+  md += `| **Raw HAR entries** | ${upload.stats.total} | — | — |\n`;
+
+  // Filter stages — build the waterfall
+  let remaining = upload.stats.total;
+  const stages: Array<{ name: string; removed: number }> = [];
+
+  if (fb.html > 0) stages.push({ name: 'Remove HTML responses', removed: fb.html });
+  if (fb.staticAssetMime > 0) stages.push({ name: 'Remove static assets (MIME type)', removed: fb.staticAssetMime });
+  if (fb.staticAssetUrl > 0) stages.push({ name: 'Remove static assets (URL pattern)', removed: fb.staticAssetUrl });
+  if (fb.tracking > 0) stages.push({ name: 'Remove tracking/analytics', removed: fb.tracking });
+  if (fb.dataBlob > 0) stages.push({ name: 'Remove data:/blob: URLs', removed: fb.dataBlob });
+  if (fb.redirects > 0) stages.push({ name: 'Remove redirects (3xx)', removed: fb.redirects });
+  if (fb.options > 0) stages.push({ name: 'Remove OPTIONS preflight', removed: fb.options });
+
+  for (const stage of stages) {
+    remaining -= stage.removed;
+    const pctReduction = ((1 - remaining / upload.stats.total) * 100).toFixed(1);
+    md += `| ${stage.name} | ${remaining} | -${stage.removed} | -${pctReduction}% |\n`;
+  }
+
+  // Deduplication row
+  if (afterDedup !== upload.stats.kept) {
+    const dedupRemoved = upload.stats.kept - afterDedup;
+    const pctReduction = ((1 - afterDedup / upload.stats.total) * 100).toFixed(1);
+    md += `| **Deduplicate** (same endpoint pattern) | **${afterDedup}** | -${dedupRemoved} | -${pctReduction}% |\n`;
+  } else {
+    md += `| **Deduplicate** (same endpoint pattern) | **${afterDedup}** | 0 | -${((1 - afterDedup / upload.stats.total) * 100).toFixed(1)}% |\n`;
+  }
+
+  md += `\n`;
+  md += `> **Summary:** ${upload.stats.total} raw entries → ${upload.stats.kept} after filtering (${((1 - upload.stats.kept / upload.stats.total) * 100).toFixed(1)}% removed) → ${afterDedup} unique patterns after dedup (${((1 - afterDedup / upload.stats.total) * 100).toFixed(1)}% total reduction)\n\n`;
+
   // Main results table
-  md += `## Results\n\n`;
+  md += `## LLM Feature Flag Ablation\n\n`;
   md += `*Latency = LLM API call time only (excludes parsing, filtering, dedup)*\n\n`;
   md += `| Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | % vs Baseline | Latency | Match |\n`;
   md += `|---|---|---|---|---|---|---|---|---|---|---|\n`;

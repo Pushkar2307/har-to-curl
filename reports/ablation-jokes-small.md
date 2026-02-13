@@ -4,36 +4,49 @@
 **HAR file:** `examples/jokes/jokes.har` (34 total entries, 3 after filtering)
 **Query:** "Can you give me a curl command to get 5 jokes via API?"
 
-## Results
+## Processing Pipeline
+
+Shows how each stage reduces the number of entries before the LLM sees them.
+
+| Stage | Entries | Removed | Cumulative Reduction |
+|---|---|---|---|
+| **Raw HAR entries** | 34 | — | — |
+| Remove HTML responses | 33 | -1 | -2.9% |
+| Remove static assets (MIME type) | 3 | -30 | -91.2% |
+| **Deduplicate** (same endpoint pattern) | **3** | 0 | -91.2% |
+
+> **Summary:** 34 raw entries → 3 after filtering (91.2% removed) → 3 unique patterns after dedup (91.2% total reduction)
+
+## LLM Feature Flag Ablation
 
 *Latency = LLM API call time only (excludes parsing, filtering, dedup)*
 
 | Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | % vs Baseline | Latency | Match |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Baseline (minimal) | ✗ | ✗ | ✗ | 3 | 375 | 60 | 435 | — | 1995ms | [2] |
-| + Deduplication only | ✓ | ✗ | ✗ | 3 | 375 | 54 | 429 | -1.4% | 2212ms | [2] |
-| + Candidates only | ✗ | ✓ | ✗ | 3 | 475 | 167 | 642 | +47.6% | 5473ms | [2] |
-| + Reasoning only | ✗ | ✗ | ✓ | 3 | 402 | 122 | 524 | +20.5% | 2707ms | [2] |
-| + Candidates + Reasoning | ✗ | ✓ | ✓ | 3 | 502 | 306 | 808 | +85.7% | 8295ms | [2] |
-| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 3 | 475 | 186 | 661 | +52.0% | 4141ms | [2] |
-| All features (with reasoning) | ✓ | ✓ | ✓ | 3 | 502 | 249 | 751 | +72.6% | 9064ms | [2] |
+| Baseline (minimal) | ✗ | ✗ | ✗ | 3 | 375 | 49 | 424 | — | 1408ms | [2] |
+| + Deduplication only | ✓ | ✗ | ✗ | 3 | 375 | 54 | 429 | +1.2% | 1282ms | [2] |
+| + Candidates only | ✗ | ✓ | ✗ | 3 | 475 | 172 | 647 | +52.6% | 2967ms | [2] |
+| + Reasoning only | ✗ | ✗ | ✓ | 3 | 402 | 122 | 524 | +23.6% | 1896ms | [2] |
+| + Candidates + Reasoning | ✗ | ✓ | ✓ | 3 | 502 | 242 | 744 | +75.5% | 4420ms | [2] |
+| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 3 | 475 | 182 | 657 | +55.0% | 3444ms | [2] |
+| All features (with reasoning) | ✓ | ✓ | ✓ | 3 | 502 | 254 | 756 | +78.3% | 4078ms | [2] |
 
 ## Isolated Feature Costs
 
 | Feature | Prompt Δ | Completion Δ | Total Δ | What you get |
 |---|---|---|---|---|
-| Deduplication | +0 | -6 | -6 | URL compaction, fewer entries sent |
-| Candidates + Confidence | +100 | +107 | +207 | Ranked alternatives with confidence bars |
-| Reasoning text | +27 | +62 | +89 | Verbose thought process explanation |
+| Deduplication | +0 | +5 | +5 | URL compaction, fewer entries sent |
+| Candidates + Confidence | +100 | +123 | +223 | Ranked alternatives with confidence bars |
+| Reasoning text | +27 | +73 | +100 | Verbose thought process explanation |
 
 ## Shipping Default vs All Features
 
-**Dedup + Candidates (shipping default):** 661 tokens (-52.0% vs baseline)
+**Dedup + Candidates (shipping default):** 657 tokens (-55.0% vs baseline)
 - Confidence bars + candidate list provide the high-value UX
-- Reasoning text omitted — adds ~62 completion tokens for limited end-user value
+- Reasoning text omitted — adds ~73 completion tokens for limited end-user value
 
-**All features (with reasoning):** 751 tokens
-- Full transparency including verbose reasoning text (-72.6% vs baseline)
+**All features (with reasoning):** 756 tokens
+- Full transparency including verbose reasoning text (-78.3% vs baseline)
 - Available via `reasoning: true` flag for debugging or detailed analysis
 
 ## Correctness
@@ -43,25 +56,25 @@
 ## Matched Entry Details
 
 **Baseline (minimal):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint 'https://v2.jokeapi.dev/joke/Any?amount=5' directly requests 5 jokes, making it the best match for the user's request for a curl command to get jokes via API.
+> The endpoint '/joke/Any?amount=5' directly corresponds to the user's request for an API that provides jokes, specifically allowing the retrieval of 5 jokes.
 
 **+ Deduplication only:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
 > The endpoint '/joke/Any' with the query parameter 'amount' suggests it is designed to retrieve jokes, making it the best match for the user's request for an API to get jokes.
 
 **+ Candidates only:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The best match is the endpoint that retrieves jokes, specifically requesting 5 jokes, which aligns perfectly with the user's request for a curl command to get jokes.
+> The best match is the endpoint that retrieves jokes with a specified amount, directly aligning with the user's request for 5 jokes.
 
 **+ Reasoning only:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> This is the best match because it specifically requests 5 jokes from the joke API, aligning perfectly with the user's requirement.
+> This is the best match because it specifically requests 5 jokes from the joke API, which directly fulfills the user's requirement.
 
 **+ Candidates + Reasoning:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index [2] is the best match as it directly retrieves jokes and allows the user to specify the number of jokes, which perfectly aligns with the user's request.
+> The endpoint at index [2] is the best match as it directly requests 5 jokes, which is exactly what the user is looking for.
 
 **Dedup + Candidates (default):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index 2 is the best match as it is specifically designed to retrieve jokes and allows for specifying the number of jokes to return, aligning perfectly with the user's request.
+> The endpoint at index 2 is the best match as it directly retrieves jokes and allows specifying the number of jokes to return, aligning perfectly with the user's request.
 
 **All features (with reasoning):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index [2] is the best match as it directly supports fetching a specified number of jokes, which aligns perfectly with the user's request.
+> The endpoint at index [2] is the best match as it directly corresponds to retrieving jokes and allows specifying the amount, which aligns perfectly with the user's request.
 
 ---
 *Generated by ablation.ts*
