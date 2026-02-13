@@ -20,35 +20,37 @@ Shows how each stage reduces the number of entries before the LLM sees them.
 
 > **Summary:** 1727 raw entries → 254 after filtering (85.3% removed) → 127 unique patterns after dedup (92.6% total reduction)
 
+> **Note — Body stripping:** After filtering, response bodies are dropped entirely and request bodies are truncated to 10 KB. This does not reduce entry count but significantly lowers memory usage for large HAR files (e.g. 87 MB → lightweight metadata only). The LLM never sees response bodies — only method, URL, status, MIME type, and size.
+
 ## LLM Feature Flag Ablation
 
 *Latency = LLM API call time only (excludes parsing, filtering, dedup)*
 
 | Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | % vs Baseline | Latency | Match |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Baseline (minimal) | ✗ | ✗ | ✗ | 254 | 42,055 | 59 | 42,114 | — | 11511ms | [253] |
-| + Deduplication only | ✓ | ✗ | ✗ | 127 | 6,819 | 69 | 6,888 | -83.6% | 3528ms | [253] |
-| + Candidates only | ✗ | ✓ | ✗ | 254 | 42,155 | 227 | 42,382 | +0.6% | 15324ms | [253] |
-| + Reasoning only | ✗ | ✗ | ✓ | 254 | 42,082 | 125 | 42,207 | +0.2% | 14275ms | [253] |
-| + Candidates + Reasoning | ✗ | ✓ | ✓ | 254 | 42,182 | 329 | 42,511 | +0.9% | 20167ms | [253] |
-| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 127 | 6,919 | 240 | 7,159 | -83.0% | 3715ms | [253] |
-| All features (with reasoning) | ✓ | ✓ | ✓ | 127 | 6,946 | 339 | 7,285 | -82.7% | 5012ms | [253] |
+| Baseline (minimal) | ✗ | ✗ | ✗ | 254 | 42,055 | 60 | 42,115 | — | 9651ms | [253] |
+| + Deduplication only | ✓ | ✗ | ✗ | 127 | 6,819 | 61 | 6,880 | -83.7% | 7419ms | [253] |
+| + Candidates only | ✗ | ✓ | ✗ | 254 | 42,155 | 222 | 42,377 | +0.6% | 13866ms | [253] |
+| + Reasoning only | ✗ | ✗ | ✓ | 254 | 42,082 | 126 | 42,208 | +0.2% | 14094ms | [253] |
+| + Candidates + Reasoning | ✗ | ✓ | ✓ | 254 | 42,182 | 315 | 42,497 | +0.9% | 22035ms | [253] |
+| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 127 | 6,919 | 245 | 7,164 | -83.0% | 4317ms | [253] |
+| All features (with reasoning) | ✓ | ✓ | ✓ | 127 | 6,946 | 328 | 7,274 | -82.7% | 10890ms | [253] |
 
 ## Isolated Feature Costs
 
 | Feature | Prompt Δ | Completion Δ | Total Δ | What you get |
 |---|---|---|---|---|
-| Deduplication | -35,236 | +10 | -35,226 | URL compaction, fewer entries sent |
-| Candidates + Confidence | +100 | +168 | +268 | Ranked alternatives with confidence bars |
+| Deduplication | -35,236 | +1 | -35,235 | URL compaction, fewer entries sent |
+| Candidates + Confidence | +100 | +162 | +262 | Ranked alternatives with confidence bars |
 | Reasoning text | +27 | +66 | +93 | Verbose thought process explanation |
 
 ## Shipping Default vs All Features
 
-**Dedup + Candidates (shipping default):** 7,159 tokens (83.0% vs baseline)
+**Dedup + Candidates (shipping default):** 7,164 tokens (83.0% vs baseline)
 - Confidence bars + candidate list provide the high-value UX
 - Reasoning text omitted — adds ~66 completion tokens for limited end-user value
 
-**All features (with reasoning):** 7,285 tokens
+**All features (with reasoning):** 7,274 tokens
 - Full transparency including verbose reasoning text (82.7% vs baseline)
 - Available via `reasoning: true` flag for debugging or detailed analysis
 
@@ -59,25 +61,25 @@ Shows how each stage reduces the number of entries before the LLM sees them.
 ## Matched Entry Details
 
 **Baseline (minimal):** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint 'https://v2.jokeapi.dev/joke/Any?amount=5' directly matches the user's request for an API that provides 5 jokes, as indicated by the 'amount' query parameter.
+> The endpoint 'https://v2.jokeapi.dev/joke/Any?amount=5' directly matches the user's request for an API to get 5 jokes, as it specifies the amount parameter in the query string.
 
 **+ Deduplication only:** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint 'https://v2.jokeapi.dev/joke/Any?amount=...' is specifically designed to retrieve jokes, and the query parameter 'amount' suggests that it can return a specified number of jokes, making it the best match for the user's request.
+> The endpoint 'GET https://v2.jokeapi.dev/joke/Any?amount=...' is the best match as it directly relates to retrieving jokes via an API, with a query parameter indicating the number of jokes requested.
 
 **+ Candidates only:** [253] https://v2.jokeapi.dev/joke/Any?amount=5
 > The best match is the endpoint that directly requests 5 jokes, which aligns perfectly with the user's request for a curl command to get jokes via API.
 
 **+ Reasoning only:** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> This endpoint is the best match because it directly requests 5 jokes from the joke API, aligning perfectly with the user's requirement.
+> This endpoint is the best match because it explicitly requests 5 jokes from the Joke API, aligning perfectly with the user's request for a curl command to get jokes.
 
 **+ Candidates + Reasoning:** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint `GET https://v2.jokeapi.dev/joke/Any?amount=5` is the best match as it directly corresponds to the user's request for 5 jokes via an API.
+> The endpoint `GET https://v2.jokeapi.dev/joke/Any?amount=5` is the best match as it specifically requests 5 jokes, aligning perfectly with the user's request.
 
 **Dedup + Candidates (default):** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index 253 is the best match as it directly allows the user to request a specific number of jokes, aligning perfectly with the user's request for 5 jokes.
+> The best match is the endpoint that allows fetching jokes directly, as it specifically supports a query parameter for the number of jokes requested, making it highly relevant to the user's request.
 
 **All features (with reasoning):** [253] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint 'https://v2.jokeapi.dev/joke/Any?amount=...' is the best match as it directly relates to fetching jokes and allows specifying the number of jokes, which aligns perfectly with the user's request.
+> The endpoint `https://v2.jokeapi.dev/joke/Any?amount=...` is the best match because it directly supports retrieving a specified number of jokes, which is exactly what the user is asking for.
 
 ---
 *Generated by ablation.ts*

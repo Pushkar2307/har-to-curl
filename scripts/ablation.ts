@@ -264,6 +264,7 @@ function generateReport(
 
   md += `\n`;
   md += `> **Summary:** ${upload.stats.total} raw entries → ${upload.stats.kept} after filtering (${((1 - upload.stats.kept / upload.stats.total) * 100).toFixed(1)}% removed) → ${afterDedup} unique patterns after dedup (${((1 - afterDedup / upload.stats.total) * 100).toFixed(1)}% total reduction)\n\n`;
+  md += `> **Note — Body stripping:** After filtering, response bodies are dropped entirely and request bodies are truncated to 10 KB. This does not reduce entry count but significantly lowers memory usage for large HAR files (e.g. 87 MB → lightweight metadata only). The LLM never sees response bodies — only method, URL, status, MIME type, and size.\n\n`;
 
   // Main results table
   md += `## LLM Feature Flag Ablation\n\n`;

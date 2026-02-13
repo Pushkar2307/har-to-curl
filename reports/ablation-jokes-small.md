@@ -17,36 +17,38 @@ Shows how each stage reduces the number of entries before the LLM sees them.
 
 > **Summary:** 34 raw entries → 3 after filtering (91.2% removed) → 3 unique patterns after dedup (91.2% total reduction)
 
+> **Note — Body stripping:** After filtering, response bodies are dropped entirely and request bodies are truncated to 10 KB. This does not reduce entry count but significantly lowers memory usage for large HAR files (e.g. 87 MB → lightweight metadata only). The LLM never sees response bodies — only method, URL, status, MIME type, and size.
+
 ## LLM Feature Flag Ablation
 
 *Latency = LLM API call time only (excludes parsing, filtering, dedup)*
 
 | Configuration | Dedup | Candidates | Reasoning | Entries | Prompt Tok | Compl Tok | Total Tok | % vs Baseline | Latency | Match |
 |---|---|---|---|---|---|---|---|---|---|---|
-| Baseline (minimal) | ✗ | ✗ | ✗ | 3 | 375 | 49 | 424 | — | 1408ms | [2] |
-| + Deduplication only | ✓ | ✗ | ✗ | 3 | 375 | 54 | 429 | +1.2% | 1282ms | [2] |
-| + Candidates only | ✗ | ✓ | ✗ | 3 | 475 | 172 | 647 | +52.6% | 2967ms | [2] |
-| + Reasoning only | ✗ | ✗ | ✓ | 3 | 402 | 122 | 524 | +23.6% | 1896ms | [2] |
-| + Candidates + Reasoning | ✗ | ✓ | ✓ | 3 | 502 | 242 | 744 | +75.5% | 4420ms | [2] |
-| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 3 | 475 | 182 | 657 | +55.0% | 3444ms | [2] |
-| All features (with reasoning) | ✓ | ✓ | ✓ | 3 | 502 | 254 | 756 | +78.3% | 4078ms | [2] |
+| Baseline (minimal) | ✗ | ✗ | ✗ | 3 | 375 | 60 | 435 | — | 1447ms | [2] |
+| + Deduplication only | ✓ | ✗ | ✗ | 3 | 375 | 59 | 434 | -0.2% | 1633ms | [2] |
+| + Candidates only | ✗ | ✓ | ✗ | 3 | 475 | 172 | 647 | +48.7% | 3471ms | [2] |
+| + Reasoning only | ✗ | ✗ | ✓ | 3 | 402 | 122 | 524 | +20.5% | 2205ms | [2] |
+| + Candidates + Reasoning | ✗ | ✓ | ✓ | 3 | 502 | 298 | 800 | +83.9% | 5012ms | [2] |
+| Dedup + Candidates (default) | ✓ | ✓ | ✗ | 3 | 475 | 177 | 652 | +49.9% | 3372ms | [2] |
+| All features (with reasoning) | ✓ | ✓ | ✓ | 3 | 502 | 295 | 797 | +83.2% | 6279ms | [2] |
 
 ## Isolated Feature Costs
 
 | Feature | Prompt Δ | Completion Δ | Total Δ | What you get |
 |---|---|---|---|---|
-| Deduplication | +0 | +5 | +5 | URL compaction, fewer entries sent |
-| Candidates + Confidence | +100 | +123 | +223 | Ranked alternatives with confidence bars |
-| Reasoning text | +27 | +73 | +100 | Verbose thought process explanation |
+| Deduplication | +0 | -1 | -1 | URL compaction, fewer entries sent |
+| Candidates + Confidence | +100 | +112 | +212 | Ranked alternatives with confidence bars |
+| Reasoning text | +27 | +62 | +89 | Verbose thought process explanation |
 
 ## Shipping Default vs All Features
 
-**Dedup + Candidates (shipping default):** 657 tokens (-55.0% vs baseline)
+**Dedup + Candidates (shipping default):** 652 tokens (-49.9% vs baseline)
 - Confidence bars + candidate list provide the high-value UX
-- Reasoning text omitted — adds ~73 completion tokens for limited end-user value
+- Reasoning text omitted — adds ~62 completion tokens for limited end-user value
 
-**All features (with reasoning):** 756 tokens
-- Full transparency including verbose reasoning text (-78.3% vs baseline)
+**All features (with reasoning):** 797 tokens
+- Full transparency including verbose reasoning text (-83.2% vs baseline)
 - Available via `reasoning: true` flag for debugging or detailed analysis
 
 ## Correctness
@@ -56,25 +58,25 @@ Shows how each stage reduces the number of entries before the LLM sees them.
 ## Matched Entry Details
 
 **Baseline (minimal):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint '/joke/Any?amount=5' directly corresponds to the user's request for an API that provides jokes, specifically allowing the retrieval of 5 jokes.
+> The endpoint 'https://v2.jokeapi.dev/joke/Any?amount=5' directly requests 5 jokes, making it the best match for the user's request for a curl command to get jokes via API.
 
 **+ Deduplication only:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint '/joke/Any' with the query parameter 'amount' suggests it is designed to retrieve jokes, making it the best match for the user's request for an API to get jokes.
+> The endpoint '/joke/Any?amount=...' suggests it retrieves jokes, and the query parameter 'amount' indicates the number of jokes requested, making it the best match for the user's request for 5 jokes.
 
 **+ Candidates only:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The best match is the endpoint that retrieves jokes with a specified amount, directly aligning with the user's request for 5 jokes.
+> The best match is the endpoint that retrieves jokes with the specified amount, directly aligning with the user's request for 5 jokes.
 
 **+ Reasoning only:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> This is the best match because it specifically requests 5 jokes from the joke API, which directly fulfills the user's requirement.
+> This is the best match because it specifically requests 5 jokes from the joke API, aligning perfectly with the user's requirement.
 
 **+ Candidates + Reasoning:** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index [2] is the best match as it directly requests 5 jokes, which is exactly what the user is looking for.
+> The endpoint at index [2] is the best match as it directly retrieves jokes and allows the user to specify the number of jokes, aligning perfectly with the user's request.
 
 **Dedup + Candidates (default):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index 2 is the best match as it directly retrieves jokes and allows specifying the number of jokes to return, aligning perfectly with the user's request.
+> The endpoint at index 2 is the best match as it is explicitly designed to fetch jokes and includes a parameter for the number of jokes to retrieve.
 
 **All features (with reasoning):** [2] https://v2.jokeapi.dev/joke/Any?amount=5
-> The endpoint at index [2] is the best match as it directly corresponds to retrieving jokes and allows specifying the amount, which aligns perfectly with the user's request.
+> The endpoint at index [2] is the best match as it directly relates to retrieving jokes and allows for specifying the number of jokes, which aligns perfectly with the user's request.
 
 ---
 *Generated by ablation.ts*
