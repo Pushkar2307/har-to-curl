@@ -255,15 +255,33 @@ export interface LlmSummaryResult {
 /**
  * Create a deduplicated, compact summary of entries for the LLM prompt.
  *
- * Token efficiency optimizations:
+ * Token efficiency optimizations (when deduplicate = true):
  * 1. Deduplication — same method + path + param names → single line with [xN] count
  * 2. URL compaction — strip query param VALUES, keep only param NAMES
  * 3. One line per unique pattern
  *
  * This typically reduces 250+ entries to 20-40 unique patterns,
  * cutting token usage by 80-90%.
+ *
+ * When deduplicate = false, all entries are listed with full URLs (for ablation comparison).
  */
-export function createLlmSummary(entries: CompactEntry[]): LlmSummaryResult {
+export function createLlmSummary(
+  entries: CompactEntry[],
+  deduplicate: boolean = true,
+): LlmSummaryResult {
+  if (!deduplicate) {
+    // No deduplication: list every entry with its full URL
+    const lines = entries.map(
+      (e) =>
+        `[${e.index}] ${e.method} ${e.url} → ${e.status} (${e.responseType}, ${formatBytes(e.responseSize)})`,
+    );
+    return {
+      summary: lines.join('\n'),
+      uniquePatterns: entries.length,
+      originalEntries: entries.length,
+    };
+  }
+
   // Group entries by their deduplication key
   const groups = new Map<string, CompactEntry[]>();
   for (const entry of entries) {

@@ -29,15 +29,17 @@ export async function uploadHarFile(file: File): Promise<UploadResponse> {
 
 /**
  * Analyze a HAR file to find the best-matching API request.
+ * Optional flags for ablation: deduplication (default true), reasoning (default true).
  */
 export async function analyzeHar(
   harId: string,
   description: string,
+  options?: { deduplication?: boolean; reasoning?: boolean },
 ): Promise<AnalyzeResponse> {
   const response = await fetch(`${API_BASE}/har/analyze`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ harId, description }),
+    body: JSON.stringify({ harId, description, ...options }),
   });
 
   if (!response.ok) {

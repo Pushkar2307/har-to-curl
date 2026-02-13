@@ -66,7 +66,10 @@ export class HarController {
    */
   @Post('analyze')
   async analyze(@Body() dto: AnalyzeHarDto): Promise<AnalyzeHarResponseDto> {
-    return this.harService.analyze(dto.harId, dto.description);
+    return this.harService.analyze(dto.harId, dto.description, {
+      deduplication: dto.deduplication,
+      reasoning: dto.reasoning,
+    });
   }
 
   /**

@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export class UploadHarResponseDto {
   id: string;
@@ -33,6 +34,18 @@ export class AnalyzeHarDto {
   @IsString()
   @IsNotEmpty()
   description: string;
+
+  /** When true, deduplicates entries and compacts URLs before sending to LLM (reduces prompt tokens). Default: true */
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  deduplication?: boolean = true;
+
+  /** When true, asks LLM for reasoning + confidence scores (increases completion tokens). Default: true */
+  @IsBoolean()
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true)
+  reasoning?: boolean = true;
 }
 
 export class AnalyzeHarResponseDto {
