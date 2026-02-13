@@ -111,7 +111,9 @@ export function FileUpload({
               <div>
                 <p className="text-sm font-medium">{currentFile.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {(currentFile.size / 1024).toFixed(1)} KB
+                  {currentFile.size < 1048576
+                  ? `${(currentFile.size / 1024).toFixed(1)} KB`
+                  : `${(currentFile.size / 1048576).toFixed(1)} MB`}
                 </p>
               </div>
             ) : (
