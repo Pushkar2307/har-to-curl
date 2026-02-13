@@ -138,16 +138,13 @@ The curl command is generated programmatically (no LLM needed) from the matched 
 
 ## Important Notes on Request Execution
 
-The "Execute" button replays the **exact request** captured in the HAR file. This works well for **stateless APIs** (e.g., public joke APIs, weather APIs) but may fail for **session-dependent APIs** with:
+The "Execute" button replays the **exact request** captured in the HAR file. This works well for **stateless APIs** but may fail for **session-dependent APIs** with:
 
 - **Session-specific tokens** — temporary IDs, CSRF tokens, or resource URIs generated during the original browsing session
 - **Expired authentication** — cookies or auth tokens that are no longer valid
 - **Rate limiting** — servers that restrict replayed requests
 
-**This is expected behavior**, not a bug. The primary deliverable is the **curl command itself** — a reverse-engineered blueprint of the API. Users can:
-1. Copy the curl command and run it in their terminal
-2. Modify parameters (e.g., change `"calories":2000` to `"calories":1000`)
-3. Use the request structure to integrate the API into their own code
+**This is expected behavior**, not a bug. The primary deliverable is the **curl command itself** — a reverse-engineered blueprint of the API that users can copy, modify, and integrate into their own code.
 
 ## Tech Stack
 
