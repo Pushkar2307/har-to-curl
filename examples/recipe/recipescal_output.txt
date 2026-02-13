@@ -1,0 +1,18 @@
+curl 'https://recipescal.com/api/bookapi' \
+  -H 'accept: */*' \
+  -H 'accept-language: en-US,en;q=0.9' \
+  -H 'cache-control: no-cache' \
+  -H 'content-type: application/json' \
+  -H 'dnt: 1' \
+  -H 'origin: https://recipescal.com' \
+  -H 'pragma: no-cache' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://recipescal.com/' \
+  -H 'sec-ch-ua: "Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: same-origin' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36' \
+  --data-raw '{"newData":{"days":[{"resource_uri":-735751826,"num_meals":1,"nutrition_profile":{"calories":2000,"cholesterol":300,"date_made":null,"deleted":false,"description":null,"fiber":25,"macro_scheme":"grams","max_carbs":250,"max_fats":111,"max_proteins":250,"min_carbs":100,"min_fats":45,"min_proteins":100,"percent_carbs":40,"percent_fats":30,"percent_proteins":30,"sodium":2400,"title":"My Nutrition Targets","watch_cholesterol":false,"watch_sodium":false,"resource_uri":-698656764},"meals":[{"resource_uri":-846696369,"meal_number":0,"foods":[{"id":-944233172,"user_id":0,"meal_id":-846696369,"food_id":905974,"amount":1,"units":1,"locked":false,"is_leftovers":false,"has_leftovers":false,"user_chosen":false,"eaten":false,"removed_from_pantry":false,"scaled_amount":0.16666666666666666,"leftovers_from_id":null,"missing_resource_uris":[],"total_ingredients":4,"resource_uri":-944233172,"makes_leftovers_for":null},{"id":-445226807,"user_id":0,"meal_id":-846696369,"food_id":906429,"amount":1,"units":1,"locked":false,"is_leftovers":false,"has_leftovers":false,"user_chosen":false,"eaten":false,"removed_from_pantry":false,"scaled_amount":1,"leftovers_from_id":null,"missing_resource_uris":[],"total_ingredients":5,"resource_uri":-445226807,"makes_leftovers_for":null}],"meal_type":{"title":"Breakfast","size_slider":100,"family_scale":1,"breakfast":2,"takeout":false,"min_preptime":0,"max_preptime":30,"min_cooktime":0,"max_cooktime":30,"max_totaltime":30,"complexity":2,"override_complexity":false,"only_use_recurring":false,"deleted":false,"resource_uri":-304507582}}]}],"swole_user":{"activity_level":"1.2","algorithm":2,"age":null,"bodyfat":null,"beta_user":true,"todays_weight":null,"use_weight_goal":false,"use_net_carbs":false,"weight_goal":null,"weight_goal_weekly_rate":null,"custom_exclusions":"","daily_price_limit":0,"exclusions":"","friend_signups":0,"friend_successes":0,"gender":null,"goal":null,"hide_gender":true,"limit_price":false,"link_clicks":0,"months_saved_up":0,"number_curated_recipes":0,"preset_diet":"anything","total_months_earned":0,"units":"I","use_leftovers":false,"complexity_level":1,"generator_focus":0,"show_walkthrough_prompt":true,"single_template_diet":true,"timezone":"-5","shopping_day":5,"use_partial_servings":false},"diet_json_id":-735751826,"existing_food_info_ids":[905974,906429,331925,3267494,906781,3353335,386788,931783,906708,3266467,906045,855167]}}'

@@ -1,0 +1,16 @@
+curl 'https://forecast7.com/en/37d77n122d42/san-francisco/?format=json' \
+  -H 'accept: application/json, text/plain, */*' \
+  -H 'accept-language: en-US,en;q=0.9' \
+  -H 'cache-control: no-cache' \
+  -H 'dnt: 1' \
+  -H 'origin: https://weatherwidget.io' \
+  -H 'pragma: no-cache' \
+  -H 'priority: u=1, i' \
+  -H 'referer: https://weatherwidget.io/' \
+  -H 'sec-ch-ua: "Not A(Brand";v="8", "Chromium";v="132", "Google Chrome";v="132"' \
+  -H 'sec-ch-ua-mobile: ?0' \
+  -H 'sec-ch-ua-platform: "macOS"' \
+  -H 'sec-fetch-dest: empty' \
+  -H 'sec-fetch-mode: cors' \
+  -H 'sec-fetch-site: cross-site' \
+  -H 'user-agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36'
